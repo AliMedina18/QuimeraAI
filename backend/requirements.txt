@@ -1,0 +1,28 @@
+# Quimera Backend -- Dependencias Python
+# Versiones fijas para reproducibilidad dev <-> produccion.
+# IMPORTANTE: usar google-genai (nuevo SDK), NO google-generativeai (deprecado)
+
+# IA y Gemini
+google-genai==1.16.0
+
+# Google Cloud
+google-cloud-firestore==2.19.0
+google-cloud-storage==2.18.0
+google-cloud-secret-manager==2.20.0
+
+# API Web
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+
+# Datos y entorno
+pydantic==2.9.0
+python-dotenv==1.0.1
+
+# Motor de evaluacion cromatica (Dia 3)
+colour-science==0.4.4
+colorspacious==1.1.2
+
+# Testing
+pytest==8.3.0
+pytest-asyncio==0.24.0
+httpx==0.28.1
