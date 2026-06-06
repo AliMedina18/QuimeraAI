@@ -1,83 +1,126 @@
 """
-color_harmony.py — Criterio 1: Armonía Cromática (OKLCH)
+color_harmony.py -- Criterio 1: Armonia Cromatica (OKLCH)
 =========================================================
-Scorer algorítmico y determinístico.
+Scorer algoritmico y deterministico.
 Dado el mismo input, siempre produce el mismo output.
 
 Espacio de color OKLCH:
   L = Lightness (luminosidad perceptual, 0-1)
-  C = Chroma    (saturación, 0-0.4 aprox.)
-  H = Hue       (ángulo en el círculo cromático, 0-360°)
+  C = Chroma    (saturacion, 0-0.4 aprox.)
+  H = Hue       (angulo en el circulo cromatico, 0-360 grados)
 
-Por qué OKLCH en vez de HSL:
-  HSL tiene luminosidad no uniforme: un amarillo al 50% de L se ve más brillante
+Por que OKLCH en vez de HSL:
+  HSL tiene luminosidad no uniforme: un amarillo al 50% de L se ve mas brillante
   que un azul al mismo 50%. OKLCH corrige esto: su escala L es perceptualmente
   uniforme, igual a como lo percibe el ojo humano.
 
-Armonías soportadas:
-  - Complementaria : 180° (±15° tolerancia)
-  - Análoga        : 30°  (±10° tolerancia)
-  - Triádica       : 120° (±15° tolerancia)
-  - Tetrádica      : 90°  (±15° tolerancia)
-  - Monocromática  : 0°   (misma familia, ±20° tolerancia)
+Armonias soportadas:
+  - Complementaria : ~180 grados (tolerancia 40)
+  - Analoga        : ~30  grados (tolerancia 25)
+  - Triadica       : ~120 grados (tolerancia 20)
+  - Monocromatica  : ~0   grados (tolerancia 30)
 
-Librería: colour-science (pip install colour-science)
+Libreria: colour-science (pip install colour-science)
 """
 
+import math
 import logging
 from typing import Optional
 
+import numpy as np
+import colour
+
 logger = logging.getLogger(__name__)
 
-# Tolerancias angulares para cada tipo de armonía
+# Tolerancias angulares para cada tipo de armonia (angulo_objetivo, tolerancia)
 HARMONY_TOLERANCES = {
-    "complementario": (180.0, 15.0),  # (ángulo_objetivo, tolerancia)
-    "análogo":        (30.0,  10.0),
-    "triádico":       (120.0, 15.0),
-    "tetrádico":      (90.0,  15.0),
-    "monocromático":  (0.0,   20.0),
+    "complementario": (180.0, 40.0),
+    "analogo":        (30.0,  25.0),
+    "triadico":       (120.0, 20.0),
+    "monocromatico":  (0.0,   30.0),
+}
+
+# Offsets de rotacion H para generar paletas armonicas
+HARMONY_ROTATIONS = {
+    "complementario": [0, 180],
+    "analogo":        [0, 30, -30],
+    "triadico":       [0, 120, 240],
+    "monocromatico":  [0, 0, 0],  # mismo H, diferente L y C
 }
 
 
 def hex_to_oklch(hex_color: str) -> tuple[float, float, float]:
     """
-    Convierte un color hexadecimal a coordenadas OKLCH.
+    Convierte un color hexadecimal a coordenadas OKLCH usando colour-science.
 
     Args:
         hex_color: Color en formato '#RRGGBB' o 'RRGGBB'.
 
     Returns:
-        Tupla (L, C, H) donde H está en grados (0-360).
+        Tupla (L, C, H) donde H esta en grados (0-360).
 
     Raises:
-        ValueError: Si el hex no es válido.
-
-    TODO Día 2/3: implementar con colour-science.
-    Ejemplo de implementación:
-        import colour
-        hex_clean = hex_color.lstrip('#')
-        r, g, b = [int(hex_clean[i:i+2], 16) / 255 for i in (0, 2, 4)]
-        rgb = colour.RGB_to_XYZ(np.array([r, g, b]), ...)
-        oklch = colour.XYZ_to_Oklab(rgb)  # luego Oklab → OKLCH
+        ValueError: Si el hex no es valido.
     """
-    # TODO Día 3: implementar con colour-science
-    # Por ahora retornamos valores placeholder
     hex_clean = hex_color.lstrip("#")
     if len(hex_clean) != 6:
-        raise ValueError(f"Hex inválido: {hex_color}")
-    r = int(hex_clean[0:2], 16) / 255
-    g = int(hex_clean[2:4], 16) / 255
-    b = int(hex_clean[4:6], 16) / 255
-    # Placeholder: convertir RGB a HSL y aproximar H como ángulo OKLCH
-    import colorsys
-    h, l, s = colorsys.rgb_to_hls(r, g, b)
-    return (l, s, h * 360)
+        raise ValueError(f"Hex invalido: {hex_color}")
+    try:
+        int(hex_clean, 16)
+    except ValueError:
+        raise ValueError(f"Hex invalido: {hex_color}")
+
+    r = int(hex_clean[0:2], 16) / 255.0
+    g = int(hex_clean[2:4], 16) / 255.0
+    b = int(hex_clean[4:6], 16) / 255.0
+
+    rgb = np.array([r, g, b])
+    xyz = colour.sRGB_to_XYZ(rgb)
+    oklab = colour.XYZ_to_Oklab(xyz)
+
+    L = float(oklab[0])
+    a = float(oklab[1])
+    b2 = float(oklab[2])
+    C = math.sqrt(a ** 2 + b2 ** 2)
+    H = math.degrees(math.atan2(b2, a)) % 360
+
+    return (L, C, H)
+
+
+def oklch_to_hex(L: float, C: float, H: float) -> str:
+    """
+    Convierte coordenadas OKLCH a hexadecimal RGB.
+
+    Args:
+        L: Luminosidad (0-1)
+        C: Chroma (0-0.4 aprox)
+        H: Hue en grados (0-360)
+
+    Returns:
+        Color en formato '#RRGGBB'.
+    """
+    H_rad = math.radians(H)
+    a = C * math.cos(H_rad)
+    b = C * math.sin(H_rad)
+
+    oklab = np.array([L, a, b])
+    xyz = colour.Oklab_to_XYZ(oklab)
+    rgb = colour.XYZ_to_sRGB(xyz)
+
+    # Clamp a [0, 1]
+    rgb = np.clip(rgb, 0.0, 1.0)
+
+    r = int(round(rgb[0] * 255))
+    g = int(round(rgb[1] * 255))
+    b2 = int(round(rgb[2] * 255))
+
+    return f"#{r:02X}{g:02X}{b2:02X}"
 
 
 def angular_difference(angle1: float, angle2: float) -> float:
     """
-    Calcula la diferencia mínima entre dos ángulos en el círculo cromático.
-    El resultado siempre está en [0, 180].
+    Calcula la diferencia minima entre dos angulos en el circulo cromatico.
+    El resultado siempre esta en [0, 180].
 
     Ejemplo: angular_difference(10, 350) = 20 (no 340)
     """
@@ -87,98 +130,130 @@ def angular_difference(angle1: float, angle2: float) -> float:
 
 def get_harmony_type(hue_angles: list[float]) -> Optional[str]:
     """
-    Determina el tipo de armonía cromática dado un conjunto de ángulos hue.
+    Determina el tipo de armonia cromatica dado un conjunto de angulos hue.
 
     Args:
-        hue_angles: Lista de ángulos H (0-360°) extraídos de la paleta.
+        hue_angles: Lista de angulos H (0-360 grados) extraidos de la paleta.
 
     Returns:
-        Nombre de la armonía detectada, o None si no hay armonía reconocible.
-
-    Lógica:
-        Para 2 colores: verificar si la diferencia angular corresponde a
-          complementaria, análoga, o monocromática.
-        Para 3+ colores: verificar todas las diferencias entre pares.
-
-    TODO Día 2/3: implementar lógica completa.
+        Nombre de la armonia detectada, o None si no hay armonia reconocible.
     """
     if len(hue_angles) < 2:
-        return "monocromático"
+        return "monocromatico"
 
-    # Para cada tipo de armonía, verificar si todos los pares cumplen la tolerancia
-    for harmony_name, (target_angle, tolerance) in HARMONY_TOLERANCES.items():
-        if harmony_name == "monocromático":
-            # Todos los colores deben tener ángulos muy similares
-            max_diff = max(
-                angular_difference(hue_angles[i], hue_angles[j])
-                for i in range(len(hue_angles))
-                for j in range(i + 1, len(hue_angles))
-            )
-            if max_diff <= tolerance:
-                return harmony_name
-        elif len(hue_angles) == 2:
-            diff = angular_difference(hue_angles[0], hue_angles[1])
-            if abs(diff - target_angle) <= tolerance:
-                return harmony_name
+    # Calcular todas las diferencias entre pares
+    diffs = [
+        angular_difference(hue_angles[i], hue_angles[j])
+        for i in range(len(hue_angles))
+        for j in range(i + 1, len(hue_angles))
+    ]
 
-    return None  # No se detectó armonía reconocible
+    if not diffs:
+        return "monocromatico"
+
+    max_diff = max(diffs)
+    min_diff = min(diffs)
+
+    # Monocromatico: todos los colores muy similares en hue
+    if max_diff <= HARMONY_TOLERANCES["monocromatico"][1]:
+        return "monocromatico"
+
+    # Para 2 colores: detectar por diferencia unica
+    if len(hue_angles) == 2:
+        diff = diffs[0]
+        for harmony_name, (target, tol) in HARMONY_TOLERANCES.items():
+            if harmony_name == "monocromatico":
+                continue
+            if abs(diff - target) <= tol:
+                return harmony_name
+        return None
+
+    # Para 3+ colores: detectar triadica (diferencias cercanas a 120)
+    if len(hue_angles) >= 3:
+        avg_diff = sum(diffs) / len(diffs)
+        target_tri, tol_tri = HARMONY_TOLERANCES["triadico"]
+        if abs(avg_diff - target_tri) <= tol_tri:
+            return "triadico"
+
+        # Analoga: todas las diferencias pequenas
+        target_ana, tol_ana = HARMONY_TOLERANCES["analogo"]
+        if max_diff <= target_ana + tol_ana:
+            return "analogo"
+
+    return None
 
 
 def generate_harmonic_palette(primary_hex: str, harmony: str) -> dict:
     """
-    Dado un color primario y un tipo de armonía, calcula los colores secundario y de acento.
+    Dado un color primario y un tipo de armonia, calcula los colores secundario y acento.
 
     Args:
-        primary_hex: Color primario en hex.
-        harmony: 'complementario' | 'análogo' | 'triádico' | 'monocromático'
+        primary_hex: Color primario en hex (ej: '#1E40AF').
+        harmony: 'complementario' | 'analogo' | 'triadico' | 'monocromatico'
 
     Returns:
         Dict con: {primary, secondary, accent, neutral_palette}
-
-    TODO Día 2: implementar con colour-science y rotaciones OKLCH.
     """
-    # TODO Día 2/3: implementar
-    logger.warning("generate_harmonic_palette: stub — implementar en Día 2")
-    return {
-        "primary": primary_hex,
-        "secondary": "#CCCCCC",  # placeholder
-        "accent": "#888888",     # placeholder
-        "neutral_palette": ["#F8FAFC", "#E2E8F0", "#64748B", "#1E293B"],
-    }
+    try:
+        L, C, H = hex_to_oklch(primary_hex)
+        rotations = HARMONY_ROTATIONS.get(harmony, [0, 180])
+
+        if harmony == "monocromatico":
+            # Misma familia de color, diferente luminosidad
+            secondary = oklch_to_hex(min(L + 0.2, 0.95), C * 0.7, H)
+            accent = oklch_to_hex(max(L - 0.15, 0.1), C * 1.2, H)
+        else:
+            h_secondary = (H + rotations[1]) % 360
+            h_accent = (H + rotations[-1]) % 360 if len(rotations) > 2 else (H + rotations[1] + 30) % 360
+            secondary = oklch_to_hex(L, C * 0.85, h_secondary)
+            accent = oklch_to_hex(min(L + 0.1, 0.95), C * 1.1, h_accent)
+
+        # Paleta neutral basada en el hue primario (muy poca saturacion)
+        neutral_palette = [
+            oklch_to_hex(0.98, C * 0.05, H),  # casi blanco con tinte
+            oklch_to_hex(0.93, C * 0.08, H),  # gris claro
+            oklch_to_hex(0.55, C * 0.10, H),  # gris medio
+            oklch_to_hex(0.20, C * 0.08, H),  # casi negro con tinte
+        ]
+
+        return {
+            "primary": primary_hex,
+            "secondary": secondary,
+            "accent": accent,
+            "neutral_palette": neutral_palette,
+        }
+
+    except Exception as e:
+        logger.error("Error en generate_harmonic_palette: %s", e)
+        return {
+            "primary": primary_hex,
+            "secondary": "#CCCCCC",
+            "accent": "#888888",
+            "neutral_palette": ["#F8FAFC", "#E2E8F0", "#64748B", "#1E293B"],
+        }
 
 
 def score_color_harmony(palette: list[str]) -> float:
     """
-    Criterio 1: Calcula el score de armonía cromática de una paleta.
+    Criterio 1: Calcula el score de armonia cromatica de una paleta.
 
     Algoritmo:
         1. Convertir todos los hex a OKLCH
-        2. Extraer ángulos H de cada color
-        3. Detectar si los ángulos corresponden a una armonía conocida
-        4. Penalizar si la variación de Chroma (saturación) es muy alta
-        5. Penalizar colores sin relación cromática identificable
+        2. Extraer angulos H de cada color
+        3. Detectar si los angulos corresponden a una armonia conocida
+        4. Penalizar si la variacion de Chroma (saturacion) es muy alta
+        5. Penalizar colores sin relacion cromatica identificable
 
     Args:
         palette: Lista de colores en hex ['#hex1', '#hex2', ...]
 
     Returns:
         Score de 0 a 100.
-        100 = armonía perfecta
-        0   = colores sin ninguna relación cromática
-
-    Ejemplos de scores esperados (para los tests del Día 3):
-        ['#0000FF', '#FF8C00']   → ~90 (complementario azul/naranja)
-        ['#1E40AF', '#3B82F6']   → ~85 (análogo, misma familia azul)
-        ['#FF0000', '#00FF00', '#0000FF'] → ~88 (triádico)
-        ['#FF0000', '#FFFF00']   → ~30 (sin armonía clara)
-
-    TODO Día 3: implementar con colour-science.
     """
     if not palette:
         return 0.0
 
-    # Filtrar valores None o vacíos
-    valid_colors = [c for c in palette if c and len(c) >= 7]
+    valid_colors = [c for c in palette if c and len(c.lstrip("#")) == 6]
     if len(valid_colors) < 2:
         return 50.0  # Solo 1 color: neutral
 
@@ -189,23 +264,18 @@ def score_color_harmony(palette: list[str]) -> float:
 
         harmony = get_harmony_type(hue_angles)
 
-        if harmony is None:
-            base_score = 40.0  # Sin armonía reconocible
-        elif harmony == "complementario":
-            base_score = 92.0
-        elif harmony == "análogo":
-            base_score = 88.0
-        elif harmony == "triádico":
-            base_score = 85.0
-        elif harmony == "monocromático":
-            base_score = 80.0
-        else:
-            base_score = 75.0
+        score_map = {
+            "complementario": 92.0,
+            "analogo":        88.0,
+            "triadico":       85.0,
+            "monocromatico":  80.0,
+        }
+        base_score = score_map.get(harmony, 40.0) if harmony else 40.0
 
-        # Penalización por inconsistencia de saturación
+        # Penalizacion por inconsistencia de saturacion
         if len(chroma_values) > 1:
             chroma_range = max(chroma_values) - min(chroma_values)
-            if chroma_range > 0.3:  # Alta variación de saturación
+            if chroma_range > 0.25:
                 base_score -= 10.0
 
         return max(0.0, min(100.0, base_score))

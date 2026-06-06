@@ -5,8 +5,10 @@ Endpoints del Dia 1:
   GET  /health       -> Health check. Cloud Run lo llama cada 30s.
   GET  /gemini-test  -> Confirma que Gemini responde correctamente.
 
+Endpoints del Dia 2:
+  POST /analyze      -> Paso 1 del pipeline: analiza brief y propone diseno.
+
 Endpoints que se implementan en dias siguientes:
-  POST /analyze        -> Dia 2: Paso 1 del pipeline
   POST /evaluate       -> Dia 3: Motor de Evaluacion Estetica
   POST /generar-diseno -> Dia 4: pipeline completo con SSE streaming
 """
@@ -20,8 +22,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from models import HealthResponse, GeminiTestResponse, DesignRequest
+from models import HealthResponse, GeminiTestResponse, DesignRequest, DesignContext
 from services.gemini_client import GeminiClient
+from pipeline.step1_analyze import analyze_and_design
 
 load_dotenv()
 
@@ -106,8 +109,44 @@ async def gemini_test() -> GeminiTestResponse:
 
 @app.post("/analyze", tags=["Pipeline"])
 async def analyze(request: DesignRequest):
-    """PASO 1 -- Analiza el brief y propone diseno. Implementar en Dia 2."""
-    raise HTTPException(status_code=501, detail="En construccion -- Dia 2")
+    """
+    PASO 1 -- Analiza el brief y propone un diseno justificado.
+
+    Recibe un brief en texto libre y retorna una propuesta de diseno completa:
+    colores (con principio y razon), tipografia, layout, tipo de armonia cromatica.
+
+    Latencia esperada: 5-10 segundos (llamada a Gemini 2.5 Pro).
+    """
+    try:
+        start = time.monotonic()
+        context = DesignContext(
+            design_brief=request.design_brief,
+            project_type=request.project_type or "",
+        )
+        context = await analyze_and_design(context)
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+        logger.info("PASO 1 completado en %dms", elapsed_ms)
+        return {
+            "status": "ok",
+            "elapsed_ms": elapsed_ms,
+            "project_type": context.project_type,
+            "industry": context.industry,
+            "target_audience": context.target_audience,
+            "brand_personality": context.brand_personality,
+            "primary_color": context.primary_color,
+            "secondary_color": context.secondary_color,
+            "accent_color": context.accent_color,
+            "neutral_palette": context.neutral_palette,
+            "heading_font": context.heading_font,
+            "body_font": context.body_font,
+            "layout_type": context.layout_type,
+            "composition_rule": context.composition_rule,
+            "color_harmony_type": context.color_harmony_type,
+            "design_rationale": context.design_rationale,
+        }
+    except Exception as e:
+        logger.error("Error en /analyze: %s", e)
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 @app.post("/evaluate", tags=["Pipeline"])

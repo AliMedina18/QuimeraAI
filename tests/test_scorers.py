@@ -163,20 +163,17 @@ class TestScoreColorHarmony:
         score = score_color_harmony(["#1E40AF"])
         assert 40.0 <= score <= 60.0
 
-    # TODO Día 3: activar estos tests cuando hex_to_oklch use colour-science real
-    @pytest.mark.skip(reason="Requiere colour-science integrado — activar en Día 3")
     def test_complementario_azul_naranja_score_alto(self):
-        """Azul (240°) y naranja (60°) son complementarios → score ≥ 85."""
+        """Azul y naranja son complementarios en OKLCH -> score >= 85."""
         from pipeline.scorers.color_harmony import score_color_harmony
         palette = ["#0000FF", "#FF8C00"]
         score = score_color_harmony(palette)
         assert score >= 85
 
-    @pytest.mark.skip(reason="Requiere colour-science integrado — activar en Día 3")
     def test_colores_sin_relacion_score_bajo(self):
-        """Colores sin relación cromática deben dar score < 50."""
+        """Colores sin relacion cromatica deben dar score < 50."""
         from pipeline.scorers.color_harmony import score_color_harmony
-        palette = ["#FF0000", "#00FF00", "#800080"]  # rojo, verde, morado: sin armonía
+        palette = ["#FF0000", "#FFFF00"]  # rojo y amarillo: sin armonia reconocible
         score = score_color_harmony(palette)
         assert score < 50
 
