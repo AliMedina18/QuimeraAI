@@ -294,18 +294,156 @@ class TestPipelineIntegration:
     @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_loop_de_correccion_activa_con_score_bajo(self):
-        """
-        Un diseño con contraste ilegible debe activar el loop de corrección.
-        TODO Día 3/4: implementar cuando el pipeline esté completo.
-        """
-        pytest.skip("TODO Día 4 — pipeline completo requerido")
+        """Pipeline completo: /evaluate ejecuta Paso1+Paso2 y retorna scores."""
+        try:
+            from httpx import AsyncClient
+            from main import app
+        except ImportError:
+            pytest.skip("fastapi o httpx no instalado")
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            response = await client.post("/evaluate", json={
+                "design_brief": "App de meditacion. Colores suaves. Minimalista.",
+                "project_type": "app",
+            })
+        assert response.status_code == 200
+        data = response.json()
+        assert "overall_score" in data
+        assert "approved" in data
+        assert data["iterations_used"] >= 1
 
     @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_pipeline_completo_fintech(self):
-        """
-        Pipeline end-to-end con brief de fintech.
-        Verifica que el resultado tiene todos los campos esperados.
-        TODO Día 4: implementar.
-        """
-        pytest.skip("TODO Día 4 — pipeline completo requerido")
+        """Pipeline end-to-end con brief fintech via /evaluate."""
+        try:
+            from httpx import AsyncClient
+            from main import app
+        except ImportError:
+            pytest.skip("fastapi o httpx no instalado")
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            response = await client.post("/evaluate", json={
+                "design_brief": "Landing page para app de inversiones. Jovenes 25-35. Azul corporativo.",
+                "project_type": "landing_page",
+            })
+        assert response.status_code == 200
+        data = response.json()
+        proposal = data.get("design_proposal", {})
+        assert proposal.get("primary_color"), "Debe tener primary_color"
+        assert proposal.get("heading_font"), "Debe tener heading_font"
+        assert proposal.get("layout_type"), "Debe tener layout_type"
+        assert data.get("overall_score") is not None
+
+
+# ---------------------------------------------------------------------------
+# TESTS UNITARIOS DEL PASO 3 (sin Gemini)
+# ---------------------------------------------------------------------------
+
+class TestStep3Generate:
+    """Tests unitarios de step3_generate.py — no requieren Gemini."""
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_generate_code_raises_si_no_aprobado(self):
+        """generate_code debe lanzar ValueError si context.approved == False."""
+        from models import DesignContext
+        from pipeline.step3_generate import generate_code
+
+        ctx = DesignContext(design_brief="test")
+        assert ctx.approved is False
+        with pytest.raises(ValueError, match="aprobados"):
+            await generate_code(ctx)
+
+    @pytest.mark.unit
+    def test_parse_code_output_extrae_tres_secciones(self):
+        """_parse_code_output debe extraer react_component, css y rationale."""
+        from pipeline.step3_generate import _parse_code_output
+
+        texto = (
+            "===REACT_COMPONENT===\nimport React from 'react';\nexport default App;\n"
+            "===DESIGN_TOKENS_CSS===\n:root { --color-primary: #000; }\n"
+            "===RATIONALE===\n# Rationale\nDecision aqui.\n"
+            "===END==="
+        )
+        result = _parse_code_output(texto)
+
+        assert "import React" in result["react_component"]
+        assert "--color-primary" in result["design_tokens_css"]
+        assert "Rationale" in result["rationale_document"]
+
+    @pytest.mark.unit
+    def test_parse_code_output_secciones_vacias_si_no_hay_delimitadores(self):
+        """Sin delimitadores, todas las secciones deben ser string vacio."""
+        from pipeline.step3_generate import _parse_code_output
+
+        result = _parse_code_output("texto sin delimitadores")
+        assert result["react_component"] == ""
+        assert result["design_tokens_css"] == ""
+        assert result["rationale_document"] == ""
+
+    @pytest.mark.unit
+    def test_fallback_component_incluye_colores_del_context(self):
+        """_get_fallback_component debe usar los colores del DesignContext."""
+        from models import DesignContext
+        from pipeline.step3_generate import _get_fallback_component
+
+        ctx = DesignContext(
+            design_brief="test",
+            primary_color="#AA1122",
+            accent_color="#BBCCDD",
+            neutral_palette=["#FFFFFF", "#F0F0F0", "#888888", "#111111"],
+            heading_font="Poppins Bold",
+            body_font="Poppins",
+        )
+        component = _get_fallback_component(ctx)
+
+        assert "#AA1122" in component
+        assert "#BBCCDD" in component
+        assert "Poppins" in component
+        assert "export default" in component
+
+    @pytest.mark.unit
+    def test_fallback_tokens_incluye_todas_las_variables(self):
+        """_get_fallback_tokens debe incluir todas las variables CSS requeridas."""
+        from models import DesignContext
+        from pipeline.step3_generate import _get_fallback_tokens
+
+        ctx = DesignContext(
+            design_brief="test",
+            primary_color="#1E40AF",
+            secondary_color="#3B82F6",
+            accent_color="#F59E0B",
+            neutral_palette=["#FFFFFF", "#F8FAFC", "#64748B", "#1E293B"],
+            heading_font="Inter Bold",
+            body_font="Inter",
+        )
+        tokens = _get_fallback_tokens(ctx)
+
+        required = [
+            "--color-primary", "--color-secondary", "--color-accent",
+            "--font-heading", "--font-body",
+            "--spacing-md", "--radius-md",
+        ]
+        for var in required:
+            assert var in tokens, f"Falta variable: {var}"
+
+    @pytest.mark.unit
+    def test_basic_python_validation_acepta_componente_valido(self):
+        """_basic_python_validation debe aceptar un componente con estructura valida."""
+        from pipeline.step3_generate import _basic_python_validation
+
+        valid_code = """
+import React from 'react';
+const App: React.FC = () => {
+  return <div>Hello</div>;
+};
+export default App;
+"""
+        assert _basic_python_validation(valid_code) is True
+
+    @pytest.mark.unit
+    def test_basic_python_validation_rechaza_sin_export(self):
+        """_basic_python_validation debe rechazar codigo sin export default."""
+        from pipeline.step3_generate import _basic_python_validation
+
+        invalid_code = "const x = 42;"
+        assert _basic_python_validation(invalid_code) is False

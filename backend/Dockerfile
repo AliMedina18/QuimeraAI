@@ -12,6 +12,12 @@
 
 FROM python:3.12-slim
 
+# Instalar Node.js para validacion de sintaxis JSX (@babel/parser)
+# Se usa en step3_generate._validate_react_syntax()
+RUN apt-get update && \
+    apt-get install -y nodejs npm --no-install-recommends && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Metadatos de la imagen
 LABEL maintainer="Alicia Medina <aliciamedina@k11technologies.com>"
 LABEL project="quimera-ai"
@@ -31,6 +37,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copiar el código fuente
 COPY . .
+
+# Instalar dependencias Node.js (solo @babel/parser para validacion JSX)
+RUN npm install --production
 
 # Cloud Run inyecta la variable PORT en el contenedor.
 # Siempre es 8080, pero la hacemos configurable por si acaso.

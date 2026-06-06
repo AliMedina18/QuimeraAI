@@ -202,9 +202,29 @@ def _generate_critique(scores: AestheticScores, explanations: dict) -> str:
         "Criterios que requieren correccion:",
     ]
 
+    # Explicaciones para scorers algoritmicos (no las genera Gemini, son deterministicas)
+    algo_explanations = {
+        "color_harmony": (
+            "Los colores no forman una armonia cromatica reconocible en OKLCH. "
+            "Usa una armonia solida: complementaria (180 grados), analoga (30 grados) "
+            "o triadica (120 grados). El color primario define la armonia; "
+            "secondary y accent deben derivarse matematicamente de el."
+        ),
+        "wcag_contrast": (
+            "Uno o mas pares texto/fondo no alcanzan WCAG AA (ratio 4.5:1). "
+            "Los colores secondary y accent deben tener suficiente contraste sobre "
+            "los neutrales claros. Evita cian (#00XXXX), menta o colores muy "
+            "saturados y claros sobre fondos blancos: su luminancia es alta y "
+            "el contraste cae por debajo de 4.5:1."
+        ),
+    }
+
     for criterion in failing:
         score = getattr(scores, criterion)
-        explanation = explanations.get(criterion, "Sin explicacion disponible")
+        explanation = (
+            algo_explanations.get(criterion)
+            or explanations.get(criterion, "Sin explicacion disponible")
+        )
         lines.append(f"- {criterion}: {score:.1f}/100 -- {explanation}")
 
     lines += [

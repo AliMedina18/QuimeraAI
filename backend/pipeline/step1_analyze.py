@@ -103,13 +103,15 @@ async def analyze_and_design(context: DesignContext) -> DesignContext:
                 context.primary_color,
                 context.color_harmony_type,
             )
-            # Solo sobreescribir si Gemini no propuso secondary/accent
-            if not context.secondary_color:
-                context.secondary_color = harmonic["secondary"]
-            if not context.accent_color:
-                context.accent_color = harmonic["accent"]
-            if not context.neutral_palette:
-                context.neutral_palette = harmonic["neutral_palette"]
+            # Siempre usar los valores OKLCH para secondary, accent y neutral.
+            # Gemini elige el primary_color y el tipo de armonia;
+            # los colores derivados se calculan matematicamente para garantizar
+            # que score_color_harmony los detecte correctamente en PASO 2.
+            # Si Gemini propone secondary/accent propios, suelen no cumplir
+            # las relaciones angulares OKLCH reales y el scorer penaliza.
+            context.secondary_color = harmonic["secondary"]
+            context.accent_color = harmonic["accent"]
+            context.neutral_palette = harmonic["neutral_palette"]
             logger.info("Paleta armonica generada con OKLCH para %s",
                         context.color_harmony_type)
         except Exception as e:
