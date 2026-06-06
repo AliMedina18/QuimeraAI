@@ -68,6 +68,8 @@ class HealthResponse(BaseModel):
 
 
 class GeminiTestResponse(BaseModel):
+    model_config = {'protected_namespaces': ()}
+
     status: str
     model_used: str
     gemini_response: str
@@ -150,6 +152,8 @@ class AestheticScores(BaseModel):
 
 class GeneratedOutput(BaseModel):
     """Output final del pipeline -- se guarda en Firestore y Cloud Storage."""
+    model_config = {'protected_namespaces': ()}
+
     react_component: str
     design_tokens_css: str
     rationale_document: str

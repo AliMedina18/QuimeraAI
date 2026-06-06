@@ -744,17 +744,150 @@ Para el MVP se usarán al menos 20 diseños generados (10 aprobados, 10 rechazad
 ### Resumen ejecutivo
 
 ```
-DÍA 1  Jue  4 Jun │ Infraestructura + Gemini funcionando en Cloud Run
-DÍA 2  Vie  5 Jun │ Paso 1: Análisis de solicitud de diseño + propuesta de diseño completa
-DÍA 3  Sáb  6 Jun │ Paso 2: Motor de evaluación estética (8 scorers)
-DÍA 4  Dom  7 Jun │ Paso 3: Generador de código + pipeline end-to-end
-DÍA 5  Lun  8 Jun │ Frontend: Chat + Scorecard + Preview
-DÍA 6  Mar  9 Jun │ Integración + pruebas + matriz de confusión
-DÍA 7  Mié 10 Jun │ Estabilización + 5 demos curadas
-DÍA 7.5 Jue 11 Jun│ Test final → Submit antes de las 2pm
+DÍA 1  Jue  4 Jun │ ✅ COMPLETO │ Infraestructura + Gemini funcionando en Cloud Run
+DÍA 2  Vie  5 Jun │ ✅ COMPLETO │ Paso 1: Análisis de solicitud de diseño + propuesta de diseño
+DÍA 3  Sáb  6 Jun │ ✅ COMPLETO │ Paso 2: Motor de evaluación estética (8 scorers)
+DÍA 4  Dom  7 Jun │ ✅ COMPLETO │ Paso 3: Generador de código + pipeline end-to-end
+DÍA 5  Lun  8 Jun │ ✅ COMPLETO │ Frontend: Chat + Scorecard + Preview
+DÍA 6  Mar  9 Jun │ ⏳ PENDIENTE│ Integración + pruebas + matriz de confusión
+DÍA 7  Mié 10 Jun │ ⏳ PENDIENTE│ Estabilización + 5 demos curadas
+DÍA 7.5 Jue 11 Jun│ ⏳ PENDIENTE│ Test final → Submit antes de las 2pm
 ```
 
 **Regla de corte:** Si hay retraso en cualquier día, la primera función en cortarse es el frontend (los paneles adicionales). El pipeline backend + evaluador **no se puede comprometer**.
+
+---
+
+### Estado de tareas completadas (Días 1–5)
+
+| Día | Fecha | Entregable principal | Estado |
+|-----|-------|----------------------|--------|
+| 1 | Jue 4 Jun | Proyecto GCP creado · APIs habilitadas · estructura del repositorio · `/health` en Cloud Run · Gemini integrado · `DesignContext` en `models.py` · Cloud Build configurado | ✅ Listo |
+| 2 | Vie 5 Jun | `step1_analyze.py` · `color_harmony.py` (armonías OKLCH) · paleta armónica generada · endpoint `POST /analyze` · probado con 10 solicitudes distintas | ✅ Listo |
+| 3 | Sáb 6 Jun | `wcag_contrast.py` · `score_color_harmony` · tests unitarios · 6 scorers LLM en `llm_scorers.py` · `AestheticEvaluator` · loop de corrección · endpoint `POST /evaluate` | ✅ Listo |
+| 4 | Dom 7 Jun | `step3_generate.py` · design tokens CSS · componente React con Tailwind · rationale en markdown · validador de sintaxis · pipeline end-to-end · SSE streaming · Firestore + Storage · Cloud Run | ✅ Listo |
+| 5 | Lun 8 Jun | Next.js 15 · layout dos paneles · ChatUI con SSE · Scorecard con 8 criterios · Preview en iframe · syntax highlighting · Firebase Hosting | ✅ Listo |
+
+---
+
+### Mejoras Días 1–5 — Lo que se agrega sobre lo que ya está hecho
+
+> Estas tareas elevan la calidad del MVP ya funcional. Priorizarlas según tiempo disponible antes del Día 6.
+
+---
+
+#### DÍA 1 — Mejoras de infraestructura
+
+```
+□ Agregar logging estructurado con Cloud Logging:
+    - Cada llamada a Gemini registra: modelo · latencia · tokens usados · solicitud hash
+    - Permite depurar en producción sin necesidad de logs locales
+□ Endpoint GET /status que devuelve:
+    - Versión del pipeline
+    - Últimas 5 ejecuciones (hash solicitud · score final · iteraciones · latencia total)
+    - Útil para demostrar en vivo que el sistema está activo
+□ Health check con warmup de Gemini:
+    - Al arrancar Cloud Run, hacer un llamado dummy a Gemini para pre-calentar la conexión
+    - Reduce la latencia del primer request real en ~2s
+```
+
+---
+
+#### DÍA 2 — Mejoras del Paso 1 (Análisis y propuesta)
+
+```
+□ Generar 3 variantes de paleta armónica (no solo 1):
+    - Variante A: armonía complementaria
+    - Variante B: armonía análoga
+    - Variante C: armonía triádica
+    - El Paso 2 evalúa las 3 y el sistema selecciona automáticamente la de mayor score
+    - En el Scorecard se muestra cuál fue elegida y por qué
+□ Enriquecer el prompt de Step 1 con "design persona":
+    - Dado el público objetivo del solicitud de diseño, inferir: edad · dispositivo predominante · contexto emocional
+    - Ajustar tipografía y espaciado según si es mobile-first o desktop-first
+□ Validar disponibilidad de fuentes en Google Fonts:
+    - Antes de confirmar typography_heading/body, verificar que la fuente existe en fonts.google.com
+    - Fallback automático si la fuente no existe
+```
+
+---
+
+#### DÍA 3 — Mejoras del Motor de Evaluación (Paso 2)
+
+```
+□ Cada scorer devuelve score + explanation + suggestions (no solo el número):
+    Estructura: { score: float, explanation: str, suggestions: list[str] }
+    - explanation: "El contraste entre #1A1A2E y #FFFFFF es 14.5:1, supera AAA"
+    - suggestions: ["Aumentar tamaño de fuente del body a 16px mínimo"]
+    - Esto alimenta el loop de corrección con instrucciones específicas
+□ Puntuación ponderada por dominio:
+    - Fintech/Legal: peso extra en WCAG (×1.5) y brand_consistency (×1.3)
+    - Lifestyle/Moda: peso extra en color_harmony (×1.4) y whitespace_quality (×1.2)
+    - El dominio se infiere del solicitud de diseño en el Paso 1
+□ Streaming de scores por SSE durante la evaluación:
+    - Emitir cada score individualmente cuando termina (no esperar a que los 8 estén listos)
+    - El frontend muestra las tarjetas apareciendo en tiempo real una por una
+    - Hace el proceso visualmente más impresionante para la demo
+□ Registrar historial de iteraciones en DesignContext:
+    - Guardar scores de CADA iteración (no solo la final)
+    - Permite mostrar en el frontend: "Iteración 1: 62 → Iteración 2: 78 → Iteración 3: 91"
+```
+
+---
+
+#### DÍA 4 — Mejoras del Generador (Paso 3)
+
+```
+□ Exportar design tokens como tokens.json (compatible con Style Dictionary / Figma Tokens):
+    {
+      "color": {
+        "primary": { "value": "#1A1A2E", "type": "color" },
+        "secondary": { "value": "#16213E", "type": "color" }
+      },
+      "typography": {
+        "heading": { "value": "Inter", "type": "fontFamily" }
+      }
+    }
+    - Permite que el usuario lleve los tokens directamente a Figma o a otro proyecto
+□ Generar variante dark mode automáticamente:
+    - A partir de los tokens aprobados, invertir luminosidad manteniendo armonía
+    - Validar contraste WCAG de la variante oscura también
+    - Exportar ambas variantes en el componente React (con `prefers-color-scheme`)
+□ Agregar breakpoints responsive al componente generado:
+    - Mobile (< 768px): layout columna única · tipografía reducida
+    - Tablet (768–1024px): ajustes intermedios
+    - Desktop (> 1024px): layout completo
+    - Generado automáticamente en Tailwind (sm: md: lg: prefixes)
+```
+
+---
+
+#### DÍA 5 — Mejoras del Frontend
+
+```
+□ Visualizador de paleta de colores:
+    - Mostrar los colores de la paleta aprobada como swatches (rectángulos de color)
+    - Mostrar el nombre del tipo de armonía ("Triádica", "Complementaria")
+    - Mostrar el valor hex + nombre en OKLCH de cada color
+
+□ Gráfico de evolución por iteraciones (si hubo loop):
+    - Mini chart de líneas (Chart.js): eje X = iteración, eje Y = score
+    - Una línea por cada uno de los 8 criterios
+    - Muestra visualmente cómo el sistema "aprendió" a corregirse
+
+□ Panel de explicaciones expandibles en el Scorecard:
+    - Cada tarjeta de criterio tiene un botón "¿Por qué este puntaje?"
+    - Al expandir: muestra explanation + suggestions del scorer
+    - Hace el sistema transparente y educativo
+
+□ Botón de exportación ZIP:
+    - Descarga un .zip con: component.tsx · tokens.css · tokens.json · rationale.md
+    - Permite al usuario llevarse el resultado y usarlo en su proyecto real
+
+□ Preview en tiempo real de tipografía y colores:
+    - Mientras llega el resultado, mostrar un placeholder animado con los colores y fuentes reales
+    - Carga las fuentes de Google Fonts dinámicamente con los valores del DesignContext
+```
 
 ---
 
@@ -762,9 +895,9 @@ DÍA 7.5 Jue 11 Jun│ Test final → Submit antes de las 2pm
 **Objetivo:** Backend vivo en Cloud Run con Gemini respondiendo correctamente.
 
 ```
-□ Crear proyecto GCP: quimera-ai-prod
-□ Habilitar APIs: aiplatform · run · firestore · storage · secretmanager · cloudbuild
-□ Crear estructura del repositorio:
+✅ Crear proyecto GCP: quimera-ai-prod
+✅ Habilitar APIs: aiplatform · run · firestore · storage · secretmanager · cloudbuild
+✅ Crear estructura del repositorio:
     QuimeraAI/
       backend/
         main.py           ← Punto de entrada FastAPI
@@ -784,15 +917,15 @@ DÍA 7.5 Jue 11 Jun│ Test final → Submit antes de las 2pm
       tests/
         test_scorers.py
         test_pipeline.py
-□ Instalar dependencias Python:
+✅ Instalar dependencias Python:
     pip install google-generativeai google-cloud-aiplatform fastapi uvicorn
     pip install pydantic python-dotenv colour-science colorspacious
-□ Primer endpoint GET /health respondiendo 200
-□ Integrar Gemini 2.5 Pro: primer llamado exitoso desde FastAPI
-□ Definir DesignContext completo en models.py (todos los campos de la Sección 7.1)
-□ Guardar GOOGLE_API_KEY en Secret Manager
-□ Deploy a Cloud Run (primer deploy, aunque sea el /health)
-□ Configurar Cloud Build: auto-deploy en push a main
+✅ Primer endpoint GET /health respondiendo 200
+✅ Integrar Gemini 2.5 Pro: primer llamado exitoso desde FastAPI
+✅ Definir DesignContext completo en models.py (todos los campos de la Sección 7.1)
+✅ Guardar GOOGLE_API_KEY en Secret Manager
+✅ Deploy a Cloud Run (primer deploy, aunque sea el /health)
+✅ Configurar Cloud Build: auto-deploy en push a main
 ```
 
 ---
@@ -801,32 +934,32 @@ DÍA 7.5 Jue 11 Jun│ Test final → Submit antes de las 2pm
 **Objetivo:** Paso 1 completo — el sistema analiza el solicitud de diseño y propone un diseño justificado.
 
 ```
-□ Implementar step1_analyze.py:
+✅ Implementar step1_analyze.py:
     - Función analyze_and_design(context: DesignContext) → DesignContext
     - Prompt con razonamiento obligatorio (ver Sección 7.3)
     - Output en JSON estricto: cada campo con valor + principio + razon
     - Parser del JSON de respuesta de Gemini → rellena DesignContext
 
-□ Implementar la lógica de armonías cromáticas en color_harmony.py:
+✅ Implementar la lógica de armonías cromáticas en color_harmony.py:
     - Conversión hex → OKLCH usando colour-science
     - Detección de tipo de armonía (complementaria, análoga, triádica, etc.)
     - Función: get_harmony_type(hue_angles: list[float]) → str
 
-□ Implementar inferencia de paleta:
+✅ Implementar inferencia de paleta:
     - Dado un color primario y un tipo de armonía, calcular secundario y acento
     - Función: generate_harmonic_palette(primary_hex: str, harmony: str) → dict
 
-□ Test con 10 solicitud de diseños distintos:
+✅ Test con 10 solicitud de diseños distintos:
     Fintech (azul corporativo) · Healthtech (verde suave) · E-commerce moda
     SaaS B2B · Startup educación · App meditación · Portfolio creativo
     Plataforma legal · Marca de lujo · App deportes
-□ Verificar que cada propuesta incluye:
+✅ Verificar que cada propuesta incluye:
     ✓ primary_color + principio justificado
     ✓ typography_heading + typography_body con razon
     ✓ layout_type + composition_rule
     ✓ color_harmony_type
-□ Endpoint POST /analyze funcionando y respondiendo DesignProposal JSON
-□ Latencia objetivo: < 10 segundos para este paso solo
+✅ Endpoint POST /analyze funcionando y respondiendo DesignProposal JSON
+✅ Latencia objetivo: < 10 segundos para este paso solo
 ```
 
 ---
@@ -836,7 +969,7 @@ DÍA 7.5 Jue 11 Jun│ Test final → Submit antes de las 2pm
 
 ```
 MAÑANA: Scorers algorítmicos (determinísticos)
-□ Implementar wcag_contrast.py:
+✅ Implementar wcag_contrast.py:
     - calculate_relative_luminance(hex: str) → float
       · Convertir hex a RGB [0-1]
       · Aplicar gamma expansion: val <= 0.04045 → val/12.92, else → ((val+0.055)/1.055)^2.4
@@ -848,20 +981,20 @@ MAÑANA: Scorers algorítmicos (determinísticos)
       · Penaliza: -15 puntos por par que no alcance 4.5:1
       · Penaliza: -8 puntos por par entre 4.5:1 y 3:1 (solo pasa texto grande)
 
-□ Implementar score_color_harmony en color_harmony.py:
+✅ Implementar score_color_harmony en color_harmony.py:
     - Extraer ángulos hue de todos los colores de la paleta en OKLCH
     - Calcular diferencias angulares entre todos los pares
     - Verificar si corresponden a una armonía reconocida (±tolerancia)
     - Penalizar si la saturación varía más de 3 niveles distintos
     - Penalizar colores sin relación cromática identificable
 
-□ Tests unitarios para ambos scorers:
+✅ Tests unitarios para ambos scorers:
     - test_wcag_negro_blanco → ratio = 21.0
     - test_wcag_complementario_análogo_triádico → scores esperados conocidos
     - test_harmony_colores_sin_relación → score bajo esperado
 
 TARDE: Scorers LLM
-□ Implementar llm_scorers.py con temperatura=0:
+✅ Implementar llm_scorers.py con temperatura=0:
     score_composition_balance()  ← Regla de tercios · Golden Ratio · simetría
     score_visual_hierarchy()     ← Escala 1.25x mínima · patrón F/Z
     score_gestalt_compliance()   ← Proximidad · Similitud · Continuidad · Figura/Fondo
@@ -869,16 +1002,16 @@ TARDE: Scorers LLM
     score_accessibility()        ← No solo color · tamaños mínimos
     score_whitespace_quality()   ← ≥30% espacio negativo · márgenes
 
-□ Implementar AestheticEvaluator en step2_evaluate.py:
+✅ Implementar AestheticEvaluator en step2_evaluate.py:
     - Ejecuta los 8 scorers (2 algorítmicos + 6 LLM)
     - Calcula overall_score = promedio ponderado
     - Si overall_score < 85: genera critique específico por criterio fallido
     - Registra iteración en DesignContext
     - Activa loop de corrección si iteration < 3
 
-□ Endpoint POST /evaluate funcionando
-□ Test del loop: verificar que un diseño malo se corrige al menos una vez
-□ Calibración: ajustar prompts de scorers LLM hasta que clasifiquen correctamente
+✅ Endpoint POST /evaluate funcionando
+✅ Test del loop: verificar que un diseño malo se corrige al menos una vez
+✅ Calibración: ajustar prompts de scorers LLM hasta que clasifiquen correctamente
    10 diseños de referencia (5 buenos, 5 malos) con ground truth definido
 ```
 
@@ -889,7 +1022,7 @@ TARDE: Scorers LLM
 
 ```
 MAÑANA: Generator
-□ Implementar step3_generate.py:
+✅ Implementar step3_generate.py:
     - Función generate_code(context: DesignContext) → GeneratedOutput
     - Prompt con restricciones estrictas: usar SOLO valores del DesignContext aprobado
     - Generar design_tokens_css: CSS variables con todos los valores del sistema
@@ -902,19 +1035,19 @@ MAÑANA: Generator
     - Generar react_component: componente React funcional con Tailwind
     - Generar rationale_document: markdown explicando cada decisión
 
-□ Validador de sintaxis React:
+✅ Validador de sintaxis React:
     - Parsear el output con @babel/parser (llamada al proceso Node desde Python)
     - Si hay error de sintaxis: pedir corrección automática una vez más
     - Si persiste: usar template base fallback
 
 TARDE: Pipeline end-to-end
-□ Conectar los 3 pasos en el endpoint principal POST /generar-diseno:
+✅ Conectar los 3 pasos en el endpoint principal POST /generar-diseno:
     solicitud de diseño → step1 → step2 (con loop) → step3 → guardar en Firestore + Storage
-□ Implementar SSE streaming: enviar updates al cliente en cada transición de paso
-□ Guardar resultados en Firestore y archivos en Cloud Storage
-□ Test end-to-end con 5 solicitud de diseños: verificar que el pipeline completo funciona sin caerse
-□ Medir latencia total: si > 45s, usar Gemini Flash en step2 scorers LLM también
-□ Deploy completo a Cloud Run
+✅ Implementar SSE streaming: enviar updates al cliente en cada transición de paso
+✅ Guardar resultados en Firestore y archivos en Cloud Storage
+✅ Test end-to-end con 5 solicitud de diseños: verificar que el pipeline completo funciona sin caerse
+✅ Medir latencia total: si > 45s, usar Gemini Flash en step2 scorers LLM también
+✅ Deploy completo a Cloud Run
 ```
 
 ---
@@ -923,34 +1056,34 @@ TARDE: Pipeline end-to-end
 **Objetivo:** Frontend funcional que muestra el proceso y los resultados.
 
 ```
-□ Setup Next.js 15: npx create-next-app@latest frontend --typescript --tailwind
-□ Layout de dos paneles:
+✅ Setup Next.js 15: npx create-next-app@latest frontend --typescript --tailwind
+✅ Layout de dos paneles:
     Panel izquierdo (40%): Chat y progreso del pipeline
     Panel derecho (60%): Tabs → Preview | Scorecard | Código | Rationale
 
-□ Componente ChatUI:
+✅ Componente ChatUI:
     - Textarea para el solicitud de diseño
     - Botón "Generar interfaz"
     - Indicador de paso activo con animación (Paso 1 → Paso 2 → Paso 3)
     - SSE listener: actualiza el UI con cada evento del backend
 
-□ Componente Scorecard:
+✅ Componente Scorecard:
     - 8 tarjetas, una por criterio
     - Barra de progreso con color: verde ≥85 · amarillo 70-84 · rojo <70
     - Número de la puntuación grande y visible
     - Texto explicativo del criterio (en español llano)
     - Si hubo loop: mostrar evolución de puntajes por iteración
 
-□ Componente Preview:
+✅ Componente Preview:
     - iframe sandbox con el componente React generado
     - Botón "copiar código"
 
-□ Componente Código + Rationale:
+✅ Componente Código + Rationale:
     - Syntax highlighting del React generado
     - Documento de rationale renderizado como markdown
 
-□ Conectar frontend al backend (URL de Cloud Run en variable de entorno)
-□ Deploy del frontend a Firebase Hosting
+✅ Conectar frontend al backend (URL de Cloud Run en variable de entorno)
+✅ Deploy del frontend a Firebase Hosting
 ```
 
 ---

@@ -293,7 +293,7 @@ async def _validate_react_syntax(component_code: str) -> bool:
     except FileNotFoundError:
         logger.info("Node.js no disponible. Usando validacion Python.")
     except Exception as e:
-        logger.warning("Error en validacion Babel: %s", e)
+        logger.warning("Error en validacion Babel: %s(%s)", type(e).__name__, e)
 
     # Fallback: validacion Python basica
     return _basic_python_validation(component_code)
