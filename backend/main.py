@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 from models import HealthResponse, GeminiTestResponse, DesignRequest, DesignContext
 from services.gemini_client import GeminiClient
 from pipeline.step1_analyze import analyze_and_design
+from pipeline.step2_evaluate import aesthetic_evaluate
 
 load_dotenv()
 
@@ -151,8 +152,62 @@ async def analyze(request: DesignRequest):
 
 @app.post("/evaluate", tags=["Pipeline"])
 async def evaluate(request: DesignRequest):
-    """PASO 2 -- Motor de Evaluacion Estetica. Implementar en Dia 3."""
-    raise HTTPException(status_code=501, detail="En construccion -- Dia 3")
+    """
+    PASO 1+2 con loop de correccion automatico.
+
+    Flujo completo:
+      1. Paso 1: analyze_and_design() -> propuesta de diseno
+      2. Paso 2: aesthetic_evaluate() -> 8 scores
+      3. Si overall_score < 85 e iteration < 3: volver al Paso 1 con critique
+      4. Repetir hasta aprobar o agotar iteraciones
+
+    Latencia esperada: 30-60s (puede hacer hasta 3 ciclos de Paso1+Paso2).
+    """
+    try:
+        start = time.monotonic()
+        context = DesignContext(
+            design_brief=request.design_brief,
+            project_type=request.project_type or "",
+        )
+
+        # Loop de correccion: max 3 iteraciones
+        MAX_ITER = 3
+        while True:
+            context = await analyze_and_design(context)
+            context = await aesthetic_evaluate(context)
+
+            logger.info(
+                "Iteracion %d: overall_score=%.1f approved=%s",
+                context.iteration, context.overall_score or 0, context.approved
+            )
+
+            if context.approved or context.iteration >= MAX_ITER:
+                break
+
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+        logger.info("Pipeline Paso1+2 completado en %dms tras %d iteracion(es)",
+                    elapsed_ms, context.iteration)
+        return {
+            "status": "ok",
+            "elapsed_ms": elapsed_ms,
+            "overall_score": context.overall_score,
+            "approved": context.approved,
+            "iterations_used": context.iteration,
+            "aesthetic_scores": context.aesthetic_scores,
+            "critique": context.critique,
+            "design_proposal": {
+                "primary_color": context.primary_color,
+                "secondary_color": context.secondary_color,
+                "accent_color": context.accent_color,
+                "heading_font": context.heading_font,
+                "body_font": context.body_font,
+                "layout_type": context.layout_type,
+                "color_harmony_type": context.color_harmony_type,
+            },
+        }
+    except Exception as e:
+        logger.error("Error en /evaluate: %s", e)
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 @app.post("/generar-diseno", tags=["Pipeline"])

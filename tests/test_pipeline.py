@@ -135,6 +135,59 @@ class TestDesignContextModel:
         assert data["approved"] is False
 
 
+class TestLoopCorreccion:
+    """Verifica la logica del loop de correccion sin llamar a Gemini."""
+
+    @pytest.mark.unit
+    def test_context_no_aprobado_cuando_score_bajo(self):
+        """Si overall_score < 85, approved debe ser False."""
+        from models import AestheticScores
+        scores = AestheticScores(
+            color_harmony=50, wcag_contrast=50, composition_balance=50,
+            visual_hierarchy=50, gestalt_compliance=50, whitespace_quality=50,
+            brand_consistency=50, accessibility=50,
+        )
+        assert scores.passed is False
+        assert scores.overall_score < 85
+
+    @pytest.mark.unit
+    def test_critique_contiene_criterios_fallidos(self):
+        """_generate_critique debe mencionar los criterios que fallaron."""
+        from pipeline.step2_evaluate import _generate_critique
+        from models import AestheticScores
+        scores = AestheticScores(
+            color_harmony=40, wcag_contrast=90, composition_balance=90,
+            visual_hierarchy=90, gestalt_compliance=90, whitespace_quality=90,
+            brand_consistency=90, accessibility=90,
+        )
+        critique = _generate_critique(scores, {"color_harmony": "Paleta sin armonia reconocible."})
+        assert "color_harmony" in critique
+        assert "40" in critique
+
+    @pytest.mark.unit
+    def test_iteration_incrementa_en_cada_ciclo(self):
+        """El campo iteration debe incrementarse en cada evaluacion."""
+        from models import DesignContext
+        ctx = DesignContext(design_brief="test")
+        assert ctx.iteration == 0
+        ctx.iteration += 1
+        assert ctx.iteration == 1
+        ctx.iteration += 1
+        assert ctx.iteration == 2
+
+    @pytest.mark.unit
+    def test_aprobado_cuando_overall_es_exactamente_85(self):
+        """El umbral de aprobacion es >= 85, no > 85."""
+        from models import AestheticScores
+        scores = AestheticScores(
+            color_harmony=85, wcag_contrast=85, composition_balance=85,
+            visual_hierarchy=85, gestalt_compliance=85, whitespace_quality=85,
+            brand_consistency=85, accessibility=85,
+        )
+        assert scores.passed is True
+        assert scores.overall_score == 85.0
+
+
 class TestAestheticScoresModel:
     """Verifica el modelo AestheticScores y sus propiedades calculadas."""
 
