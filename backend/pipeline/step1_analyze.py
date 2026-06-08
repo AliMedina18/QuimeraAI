@@ -14,9 +14,9 @@ INTEGRACIÓN COMPLETA de design.md-main:
 """
 
 import logging
-from models import DesignContext
-from services.gemini_client import GeminiClient
-from services.design_templates import get_templates_manager
+from backend.models import DesignContext
+from backend.services.gemini_client import GeminiClient
+from backend.services.design_templates import get_templates_manager
 
 logger = logging.getLogger(__name__)
 
@@ -595,8 +595,8 @@ async def analyze_and_design(context: DesignContext) -> DesignContext:
         client = GeminiClient()
         templates_manager = get_templates_manager()
         
-        from services.typography_analyzer import get_typography_analyzer
-        from services.color_science import get_color_science
+        from backend.services.typography_analyzer import get_typography_analyzer
+        from backend.services.color_science import get_color_science
         
         typo_analyzer = get_typography_analyzer()
         color_science = get_color_science()

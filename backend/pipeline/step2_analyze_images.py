@@ -9,8 +9,8 @@ Output: DesignContext (con image_generation_plan)
 
 import logging
 import re
-from models import DesignContext, ImageSpec, ImageGenerationPlan
-from services.gemini_client import GeminiClient
+from backend.models import DesignContext, ImageSpec, ImageGenerationPlan
+from backend.services.gemini_client import GeminiClient
 
 logger = logging.getLogger(__name__)
 
