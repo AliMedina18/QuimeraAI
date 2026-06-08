@@ -12,9 +12,9 @@ import json
 from pathlib import Path
 
 # Add backend to path
-sys.path.insert(0, str(Path(__file__).parent / "backend"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from services.design_templates import get_templates_manager
+from backend.services.design_templates import get_templates_manager
 
 def test_template_loading():
     """✅ Verifica que los templates se cargan correctamente."""

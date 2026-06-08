@@ -14,7 +14,7 @@ import os
 import re
 
 # Agregar backend a path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from backend.models import DesignContext
 from backend.pipeline.step1_analyze import analyze_and_design

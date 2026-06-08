@@ -6,7 +6,7 @@ y que el pipeline puede inyectarlos.
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from backend.services.design_templates import get_templates_manager
 
