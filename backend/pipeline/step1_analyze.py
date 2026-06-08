@@ -14,9 +14,9 @@ INTEGRACIÓN COMPLETA de design.md-main:
 """
 
 import logging
-from backend.models import DesignContext
-from backend.services.gemini_client import GeminiClient
-from backend.services.design_templates import get_templates_manager
+from models import DesignContext
+from services.gemini_client import GeminiClient
+from services.design_templates import get_templates_manager
 
 logger = logging.getLogger(__name__)
 
