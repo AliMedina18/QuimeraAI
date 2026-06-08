@@ -1,9 +1,0 @@
-{
-  "name": "quimera-jsx-validator",
-  "version": "1.0.0",
-  "description": "Validador de sintaxis JSX/TypeScript para Quimera AI",
-  "private": true,
-  "dependencies": {
-    "@babel/parser": "^7.24.0"
-  }
-}

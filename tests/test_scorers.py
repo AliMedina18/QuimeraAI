@@ -218,8 +218,8 @@ class TestScoreWcagContrastIntegration:
         """Colores casi iguales entre sí deben dar score bajo."""
         from pipeline.scorers.wcag_contrast import score_wcag_contrast
         ctx = self._make_context(
-            primary="#CCCCCC",  # gris claro
-            neutral_palette=["#DDDDDD", "#EEEEEE", "#BBBBBB"],  # todos grises similares
+            primary="#CCCCCC",
+            neutral_palette=["#DDDDDD", "#EEEEEE", "#BBBBBB"],
         )
         score = score_wcag_contrast(ctx)
-        assert score < 80.0  # 2 pares fallan: 100 - 2x15 = 70
+        assert score < 80.0

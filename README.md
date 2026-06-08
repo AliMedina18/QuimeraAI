@@ -15,7 +15,7 @@ Proyecto para el **Google AI Startup Agents Challenge** — deadline 11 jul 2026
 ### 1. Clonar el repo
 
 ```bash
-git clone https://github.com/tu-usuario/QuimeraAI.git
+git clone https://github.com/AliMedina18/QuimeraAI
 cd QuimeraAI
 ```
 
@@ -70,18 +70,46 @@ Endpoints disponibles:
 
 ---
 
-## Correr los tests
+## Correr el frontend localmente
 
 ```powershell
-# Desde la raíz del repo, con el entorno activo
-PYTHONPATH=backend pytest tests/ -m "not slow" -v
+cd frontend
+npm install        # solo la primera vez
+npm run dev        # http://localhost:3000
+```
 
-# Solo tests unitarios (sin credenciales)
-PYTHONPATH=backend pytest tests/ -m unit -v
+---
+
+## Correr los tests
+
+Desde la raíz del repo, con el entorno virtual activo (`(.venv)` visible):
+
+```powershell
+# Todos los tests rápidos (sin llamadas a Gemini)
+$env:PYTHONPATH = "backend"; pytest tests/ -m "not slow" -v
+
+# Solo tests unitarios (sin credenciales, los más rápidos)
+$env:PYTHONPATH = "backend"; pytest tests/ -m unit -v
 
 # Un test específico
-PYTHONPATH=backend pytest tests/test_scorers.py::TestCalculateWcagRatio::test_negro_sobre_blanco_es_21 -v
+$env:PYTHONPATH = "backend"; pytest tests/test_scorers.py::TestCalculateWcagRatio::test_negro_sobre_blanco_es_21 -v
+
+# Tests lentos (llaman a Gemini — requiere GOOGLE_API_KEY en .env)
+$env:PYTHONPATH = "backend"; pytest tests/ -m slow -v
 ```
+
+> **Nota:** en PowerShell `PYTHONPATH=backend pytest ...` no funciona — hay que usar `$env:PYTHONPATH = "backend"; pytest ...`
+
+---
+
+## Verificar sintaxis de archivos Python
+
+```powershell
+cd backend
+py -3.12 -m py_compile main.py models.py pipeline/step1_analyze.py pipeline/step2_evaluate.py pipeline/step3_generate.py pipeline/scorers/color_harmony.py pipeline/scorers/wcag_contrast.py pipeline/scorers/llm_scorers.py services/gemini_client.py
+```
+
+Si no hay output, todo está bien. Si hay error, muestra el archivo y la línea.
 
 ---
 

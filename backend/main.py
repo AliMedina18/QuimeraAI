@@ -1,21 +1,3 @@
-"""
-main.py -- Punto de entrada FastAPI de Quimera
-==============================================
-Endpoints del Dia 1:
-  GET  /health       -> Health check. Cloud Run lo llama cada 30s.
-  GET  /gemini-test  -> Confirma que Gemini responde correctamente.
-
-Endpoints del Dia 2:
-  POST /analyze      -> Paso 1 del pipeline: analiza brief y propone diseno.
-
-Endpoints del Dia 3:
-  POST /evaluate     -> Paso 1+2 con loop de correccion automatico.
-
-Endpoints del Dia 4:
-  POST /generar-diseno -> Pipeline completo con SSE streaming.
-  GET  /proyecto/{id}  -> Recupera un proyecto guardado de Firestore.
-"""
-
 import os
 import json
 import uuid

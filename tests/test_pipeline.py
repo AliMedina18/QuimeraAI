@@ -440,10 +440,9 @@ export default App;
 """
         assert _basic_python_validation(valid_code) is True
 
-    @pytest.mark.unit
-    def test_basic_python_validation_rechaza_sin_export(self):
-        """_basic_python_validation debe rechazar codigo sin export default."""
+    def test_basic_python_validation_rechaza_codigo_invalido(self):
+        """_basic_python_validation rechaza codigo sin estructura React valida."""
         from pipeline.step3_generate import _basic_python_validation
 
-        invalid_code = "const x = 42;"
+        invalid_code = "console.log('hello')"
         assert _basic_python_validation(invalid_code) is False

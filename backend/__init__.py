@@ -1,0 +1,1 @@
+# Quimera AI — backend package

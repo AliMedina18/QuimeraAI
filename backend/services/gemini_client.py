@@ -28,7 +28,10 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    load_dotenv()
+except Exception:
+    pass  # .env no requerido en entornos con variables ya seteadas
 logger = logging.getLogger(__name__)
 
 MODEL_PRO = os.getenv("GEMINI_MODEL_PRO", "gemini-2.5-pro")

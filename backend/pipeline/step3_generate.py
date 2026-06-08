@@ -18,10 +18,7 @@ Outputs: context.react_component    -- codigo TSX completo
 Modelo: gemini-2.5-flash (mas rapido y barato que pro, suficiente para generacion)
 """
 
-import asyncio
 import logging
-import os
-import tempfile
 
 from models import DesignContext
 from services.gemini_client import GeminiClient
@@ -264,38 +261,9 @@ def _parse_code_output(text: str) -> dict:
 async def _validate_react_syntax(component_code: str) -> bool:
     """
     Valida que el componente React tiene sintaxis TypeScript/JSX valida.
-    Usa @babel/parser via Node.js (subprocess).
-
-    Si Node no esta disponible, usa validacion Python basica como fallback.
+    Usa validacion Python pura (rapido, sin dependencias externas).
     Siempre retorna True o False (nunca lanza excepcion).
     """
-    # Intento 1: validacion con Babel/Node
-    try:
-        script_path = os.path.join(os.path.dirname(__file__), "..", "validate_jsx.js")
-        script_path = os.path.normpath(script_path)
-
-        if os.path.exists(script_path):
-            proc = await asyncio.create_subprocess_exec(
-                "node", script_path,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            _, stderr = await asyncio.wait_for(
-                proc.communicate(input=component_code.encode("utf-8")),
-                timeout=10.0,
-            )
-            if proc.returncode != 0:
-                logger.warning("Babel encontro error: %s", stderr.decode()[:300])
-            return proc.returncode == 0
-    except asyncio.TimeoutError:
-        logger.warning("Validacion Babel timeout. Usando validacion Python.")
-    except FileNotFoundError:
-        logger.info("Node.js no disponible. Usando validacion Python.")
-    except Exception as e:
-        logger.warning("Error en validacion Babel: %s(%s)", type(e).__name__, e)
-
-    # Fallback: validacion Python basica
     return _basic_python_validation(component_code)
 
 

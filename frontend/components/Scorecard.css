@@ -1,5 +1,0 @@
-/* Scorecard.tsx */
-
-.scorecard-progress-bar > div {
-  width: var(--progress-width);
-}
