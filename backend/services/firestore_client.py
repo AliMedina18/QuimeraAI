@@ -70,39 +70,4 @@ class FirestoreClient:
             logger.error("Firestore.save_generated_output: %s", e)
             raise
 
-    async def save_aesthetic_scores(self, project_id: str, scores: dict) -> None:
-        """
-        Guarda los scores de una iteracion de evaluacion.
 
-        Args:
-            project_id: ID del proyecto.
-            scores: dict con los 8 scores + overall_score.
-        """
-        if self._db is None:
-            logger.warning("Firestore no disponible. Omitiendo guardado.")
-            return
-        try:
-            scores["evaluated_at"] = datetime.now(timezone.utc).isoformat()
-            doc_ref = self._db.collection("aesthetic_scores").document(project_id)
-            await doc_ref.set(scores, merge=True)
-            logger.info("Firestore: scores de %s guardados.", project_id)
-        except Exception as e:
-            logger.error("Firestore.save_aesthetic_scores: %s", e)
-            raise
-
-    async def get_project(self, project_id: str) -> Optional[dict]:
-        """
-        Recupera un proyecto por su ID.
-
-        Returns:
-            dict con los datos del proyecto, o None si no existe.
-        """
-        if self._db is None:
-            return None
-        try:
-            doc_ref = self._db.collection("projects").document(project_id)
-            doc = await doc_ref.get()
-            return doc.to_dict() if doc.exists else None
-        except Exception as e:
-            logger.error("Firestore.get_project: %s", e)
-            return None

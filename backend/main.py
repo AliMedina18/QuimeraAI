@@ -405,21 +405,3 @@ async def generar_diseno(request: DesignRequest):
         },
     )
 
-
-@app.get("/proyecto/{project_id}", tags=["Pipeline"])
-async def get_proyecto(project_id: str):
-    """
-    Recupera los datos de un proyecto guardado en Firestore.
-    Util para cargar resultados previos sin re-ejecutar el pipeline.
-    """
-    try:
-        firestore_client = FirestoreClient()
-        data = await firestore_client.get_project(project_id)
-        if data is None:
-            raise HTTPException(status_code=404, detail=f"Proyecto {project_id} no encontrado")
-        return data
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Error en /proyecto/%s: %s", project_id, e)
-        raise HTTPException(status_code=503, detail=str(e))

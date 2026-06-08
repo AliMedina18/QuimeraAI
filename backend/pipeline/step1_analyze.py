@@ -13,7 +13,6 @@ Outputs: context con campos de diseno completados:
 import logging
 from models import DesignContext
 from services.gemini_client import GeminiClient
-from pipeline.scorers.color_harmony import generate_harmonic_palette
 
 logger = logging.getLogger(__name__)
 

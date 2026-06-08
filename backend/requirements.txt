@@ -8,7 +8,6 @@ google-genai==1.16.0
 # Google Cloud
 google-cloud-firestore==2.19.0
 google-cloud-storage==2.18.0
-google-cloud-secret-manager==2.20.0
 
 # API Web
 fastapi==0.115.0
@@ -20,7 +19,6 @@ python-dotenv==1.0.1
 
 # Motor de evaluacion cromatica (Dia 3)
 colour-science==0.4.4
-colorspacious==1.1.2
 
 # Testing
 pytest==8.3.0
