@@ -11,8 +11,8 @@ from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 import re
 
-from models import TemplatePattern, TemplateAnalysisContext
-from services.design_templates import get_templates_manager
+from backend.models import TemplatePattern, TemplateAnalysisContext
+from backend.services.design_templates import get_templates_manager
 
 logger = logging.getLogger(__name__)
 

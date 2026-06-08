@@ -18,13 +18,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from models import HealthResponse, GeminiTestResponse, DesignRequest, DesignContext
-from services.gemini_client import GeminiClient
-from services.design_templates import get_templates_manager
-from pipeline.step0_template_analysis import analyze_templates
-from pipeline.step1_analyze import analyze_and_design
-from pipeline.step2_analyze_images import analyze_for_images
-from pipeline.step3_generate import generate_code
+from backend.models import HealthResponse, GeminiTestResponse, DesignRequest, DesignContext
+from backend.services.gemini_client import GeminiClient
+from backend.services.design_templates import get_templates_manager
+from backend.pipeline.step0_template_analysis import analyze_templates
+from backend.pipeline.step1_analyze import analyze_and_design
+from backend.pipeline.step2_analyze_images import analyze_for_images
+from backend.pipeline.step3_generate import generate_code
 
 load_dotenv()
 

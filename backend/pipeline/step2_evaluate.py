@@ -23,11 +23,11 @@ Los 8 criterios:
 
 import asyncio
 import logging
-from models import DesignContext, AestheticScores
-from services.gemini_client import GeminiClient
-from pipeline.scorers.color_harmony import score_color_harmony
-from pipeline.scorers.wcag_contrast import score_wcag_contrast
-from pipeline.scorers.llm_scorers import (
+from backend.models import DesignContext, AestheticScores
+from backend.services.gemini_client import GeminiClient
+from backend.pipeline.scorers.color_harmony import score_color_harmony
+from backend.pipeline.scorers.wcag_contrast import score_wcag_contrast
+from backend.pipeline.scorers.llm_scorers import (
     score_composition_balance,
     score_visual_hierarchy,
     score_gestalt_compliance,

@@ -8,8 +8,8 @@ Output: DesignContext (con template_analysis poblado)
 """
 
 import logging
-from models import DesignContext
-from services.template_analyzer import get_template_analyzer
+from backend.models import DesignContext
+from backend.services.template_analyzer import get_template_analyzer
 
 logger = logging.getLogger(__name__)
 
