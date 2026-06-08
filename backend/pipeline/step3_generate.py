@@ -1,433 +1,301 @@
 """
-step3_generate.py -- PASO 3: Generacion de codigo React
-========================================================
-Responsabilidad: Con el diseno aprobado, generar:
-  1. Componente React funcional + TypeScript + Tailwind CSS
-  2. Design tokens como variables CSS
-  3. Documento Markdown con el rationale de cada decision
+step3_generate.py -- PASO 2: Generar HTML completo desde DESIGN.md
+==================================================================
 
-REGLA CRITICA: Este paso NO puede inventar valores.
-Solo usa colores, tipografias y espaciados del DesignContext aprobado.
+Lee el DESIGN.md generado en Paso 1 e implementa un archivo HTML
+autocontenido que demuestra profesionalmente TODO el sistema de diseño.
 
-Inputs:  context.approved == True (obligatorio)
-         Todos los campos de diseno del DesignContext
-Outputs: context.react_component    -- codigo TSX completo
-         context.design_tokens_css  -- variables CSS
-         context.rationale_document -- markdown con decisiones
+Enfoque HTML (como Google Stitch):
+  - HTML + CSS inline + JavaScript vanilla
+  - Tailwind CDN para utilities de layout
+  - Google Fonts para tipografía exacta
+  - Sin React, sin transpilación, sin dependencias externas complejas
+  - El iframe solo necesita srcDoc={html} — funciona instantáneo
 
-Modelo: gemini-2.5-flash (mas rapido y barato que pro, suficiente para generacion)
+Input:  DesignContext.design_markdown (DESIGN.md completo)
+Output: DesignContext.html_output (HTML autocontenido y funcional)
+
+Gemini Flash: Generación rápida, código limpio, implementación fiel
 """
 
 import logging
-
+import re
 from models import DesignContext
 from services.gemini_client import GeminiClient
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Delimitadores para parsear la respuesta de Gemini
-# Se usan delimitadores en vez de JSON para evitar escaping de codigo
-# ---------------------------------------------------------------------------
-_D_REACT = "===REACT_COMPONENT==="
-_D_CSS   = "===DESIGN_TOKENS_CSS==="
-_D_MD    = "===RATIONALE==="
-_D_END   = "===END==="
 
-GENERATE_SYSTEM_PROMPT = """Eres un desarrollador React senior especializado en sistemas de diseno.
-Tu tarea es generar un componente React completo a partir de un diseno aprobado.
+SYSTEM_PROMPT = """Eres un experto en HTML, CSS y diseño visual. Tu tarea es generar un archivo HTML COMPLETO y AUTOCONTENIDO que implemente fielmente un sistema de diseño descrito en un DESIGN.md.
 
-REGLAS ESTRICTAS:
-1. Usa EXACTAMENTE los colores hex del DesignContext. No inventes colores.
-   Usa CSS variables: var(--color-primary), var(--color-secondary), etc.
-2. Usa EXACTAMENTE las fuentes del DesignContext. No inventes fuentes.
-3. Usa Tailwind para layout y espaciado. Usa CSS variables para colores y fuentes.
-4. TypeScript: componente funcional con React.FC. Sin props requeridos.
-5. Auto-contenido: incluye Google Fonts @import dentro del CSS tokens.
-6. Componente completo: navbar + hero + seccion de features + CTA + footer.
-7. Responsivo: usa clases Tailwind md: para 2 breakpoints.
-8. Accesible: aria-labels en botones y links, roles semanticos.
+## Reglas absolutas del output
 
-IMPORTANTE: Responde UNICAMENTE con el siguiente formato exacto, incluyendo los delimitadores:
+1. **SOLO HTML** — Devuelve ÚNICAMENTE el código HTML, sin explicaciones, sin bloques de código markdown (no uses ``` antes ni después), sin comentarios fuera del HTML.
+2. **Empieza con** `<!DOCTYPE html>` — primera línea del output.
+3. **Termina con** `</html>` — última línea del output.
+4. **Autocontenido** — todo CSS y JS va inline en el mismo archivo. No hay imports externos de JS frameworks (React, Vue, etc.).
 
-===REACT_COMPONENT===
-[codigo TypeScript React completo aqui]
-===DESIGN_TOKENS_CSS===
-[variables CSS y Google Fonts import aqui]
-===RATIONALE===
-[documento Markdown con justificacion de cada decision]
-===END===
+## Estructura del HTML
 
-Sin texto adicional fuera de los delimitadores."""
+```
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>[Nombre del proyecto]</title>
+
+  <!-- Google Fonts: usa exactamente las fuentes del DESIGN.md -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=..." rel="stylesheet">
+
+  <!-- Tailwind CDN: solo para utilities de layout (grid, flex, responsive) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* CSS Variables desde el DESIGN.md */
+    :root {
+      --color-primary: #...;
+      --color-secondary: #...;
+      /* Todos los tokens del YAML */
+    }
+
+    /* Reset y base */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--font-body); color: var(--color-text); background: var(--color-background); }
+
+    /* Estilos de componentes — implementar CADA componente del DESIGN.md */
+    .btn-primary { ... }
+    .btn-secondary { ... }
+    .card { ... }
+    /* etc. */
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav>...</nav>
+
+  <!-- Hero -->
+  <section class="hero">...</section>
+
+  <!-- Features (3-4 cards mostrando la paleta) -->
+  <section class="features">...</section>
+
+  <!-- Components Showcase -->
+  <section class="showcase">
+    <!-- Buttons, Cards, Inputs, Typography, Colors -->
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">...</section>
+
+  <!-- Footer -->
+  <footer>...</footer>
+
+  <script>
+    /* JS vanilla MÍNIMO: solo para interacciones reales (hover states, toggle, etc.) */
+    /* Si no hay JS necesario, omitir el bloque script */
+  </script>
+</body>
+</html>
+```
+
+## Implementación fiel del DESIGN.md
+
+### 1. CSS Variables desde el YAML
+Extrae TODOS los tokens del frontmatter YAML y defínelos como CSS custom properties en `:root`.
+
+```css
+:root {
+  /* Colors */
+  --color-primary: #1a73e8;
+  --color-primary-hover: #1557b0;
+  /* ... todos los colores */
+
+  /* Typography */
+  --font-display: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --fs-display-lg: 3.5rem;
+  --fw-display-lg: 700;
+  --lh-display-lg: 1.1;
+  /* ... */
+
+  /* Spacing */
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  /* ... */
+
+  /* Rounded */
+  --rounded-sm: 4px;
+  --rounded-md: 8px;
+  --rounded-lg: 16px;
+  /* ... */
+}
+```
+
+### 2. Componentes CSS exactos
+Para cada componente definido en DESIGN.md, escribe CSS exacto:
+
+```css
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-radius: var(--rounded-md);
+  padding: var(--space-sm) var(--space-lg);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 1rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+```
+
+### 3. Glassmorphism (si aplica)
+```css
+.glass-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+}
+```
+
+### 4. Efectos visuales
+- Gradientes → `background: linear-gradient(...)` exacto
+- Sombras → `box-shadow: ...` exacto del DESIGN.md
+- Animaciones → `@keyframes` + `animation` en CSS, sin JS
+- Hover states → pseudo-clase `:hover` en CSS
+
+### 5. Responsividad
+Usa Tailwind para grid/flex/responsive. Para breakpoints custom usa media queries CSS.
+
+### 6. Google Fonts
+Incluye SOLO las fuentes mencionadas en el DESIGN.md. Usa el link de Google Fonts correcto.
+
+## Sections obligatorias del HTML
+
+1. **Navbar** — Logo + navegación + CTA button (si aplica)
+2. **Hero** — Headline principal, subtítulo, CTA primario. Grande e impactante.
+3. **Features** — 3-4 cards que muestren la paleta de colores y tipografía
+4. **Components Showcase** — Grid que demuestra todos los componentes del DESIGN.md:
+   - Buttons (primary, secondary, hover states)
+   - Cards (normal, featured)
+   - Inputs (normal, focus, error)
+   - Typography scale (display, headline, body, label)
+   - Color palette (swatches de todos los colores)
+5. **CTA Section** — Llamada a acción final
+6. **Footer** — Links, copyright
+
+## Calidad del código
+
+- HTML semántico: `<nav>`, `<main>`, `<section>`, `<article>`, `<footer>`
+- ARIA labels donde sea apropiado
+- Imágenes → usa `background-color` o gradientes, no `<img>` con URLs externas
+- Iconos → usa emojis Unicode o SVG inline (no font-awesome, no externos)
+- Sin console.log en producción
+- CSS limpio: clases descriptivas, sin IDs innecesarios
+"""
 
 
 async def generate_code(context: DesignContext) -> DesignContext:
     """
-    PASO 3: Genera el codigo a partir del diseno aprobado.
+    PASO 2: Generar HTML completo autocontenido desde DESIGN.md.
 
-    Flujo:
-        1. Verificar context.approved == True
-        2. Construir prompt con todos los valores del DesignContext
-        3. Llamar a Gemini Flash (temperatura=0.4, mas creativo que los scorers)
-        4. Parsear respuesta con delimitadores
-        5. Validar sintaxis JSX con Babel/Node
-        6. Si invalido: pedir correccion una vez mas
-        7. Si persiste: usar template base fallback
-        8. Guardar resultado en context
+    Genera un archivo HTML que implementa fielmente TODOS los tokens,
+    componentes y decisiones del DESIGN.md. Es el output visual final
+    que el usuario ve en el iframe de preview.
+
+    Enfoque HTML (como Google Stitch): sin React, sin transpilación,
+    funciona directamente con <iframe srcDoc={html}>.
 
     Args:
-        context: DesignContext con approved=True y todos los campos de diseno.
+        context: DesignContext con design_markdown (DESIGN.md completo)
 
     Returns:
-        context con react_component, design_tokens_css, rationale_document completados.
-
-    Raises:
-        ValueError: Si context.approved es False.
+        context actualizado con html_output (HTML autocontenido)
     """
-    if not context.approved:
-        raise ValueError(
-            f"El Paso 3 solo se ejecuta con disenos aprobados. "
-            f"overall_score actual: {context.overall_score}"
-        )
+    if not context.design_markdown:
+        raise ValueError("❌ DESIGN.md no encontrado en el contexto")
 
-    logger.info("PASO 3 -- Generando codigo (score aprobado: %.1f, iteraciones: %d)",
-                context.overall_score or 0, context.iteration)
-
-    client = GeminiClient()
-    prompt = _build_generate_prompt(context)
+    logger.info("🌐 PASO 2: Generando HTML completo desde DESIGN.md...")
 
     try:
-        raw = await client.generate_with_retry(
-            prompt=prompt,
-            model="flash",
-            temperature=0.4,
-            max_retries=3,
-        )
-        sections = _parse_code_output(raw)
-    except Exception as e:
-        logger.error("Gemini fallo en Paso 3: %s", e)
-        sections = {}
+        client = GeminiClient()
 
-    react_component = sections.get("react_component", "")
-    design_tokens_css = sections.get("design_tokens_css", "")
-    rationale_document = sections.get("rationale_document", "")
+        user_prompt = f"""Genera un archivo HTML COMPLETO y AUTOCONTENIDO que implemente fielmente este DESIGN.md.
 
-    # Validar sintaxis JSX del componente generado
-    if react_component:
-        is_valid = await _validate_react_syntax(react_component)
-        if not is_valid:
-            logger.warning("Sintaxis JSX invalida. Pidiendo correccion a Gemini...")
-            fix_prompt = _build_fix_prompt(react_component, context)
-            try:
-                fixed_raw = await client.generate_with_retry(
-                    prompt=fix_prompt,
-                    model="flash",
-                    temperature=0.2,
-                    max_retries=2,
-                )
-                fixed_sections = _parse_code_output(fixed_raw)
-                fixed_component = fixed_sections.get("react_component", "")
-                fixed_is_valid = await _validate_react_syntax(fixed_component) if fixed_component else False
-                if fixed_is_valid:
-                    react_component = fixed_component
-                    logger.info("Correccion exitosa: componente reparado")
-                else:
-                    logger.warning("Correccion fallo. Usando template fallback.")
-                    react_component = _get_fallback_component(context)
-            except Exception as e:
-                logger.error("Error en correccion: %s. Usando fallback.", e)
-                react_component = _get_fallback_component(context)
-    else:
-        logger.warning("Gemini no genero componente. Usando template fallback.")
-        react_component = _get_fallback_component(context)
+---
+{context.design_markdown}
+---
 
-    if not design_tokens_css:
-        design_tokens_css = _get_fallback_tokens(context)
+INSTRUCCIONES CRÍTICAS:
 
-    if not rationale_document:
-        rationale_document = _get_fallback_rationale(context)
+1. **PARSE EXACTO DEL DESIGN.MD**
+   - Extrae TODOS los tokens del YAML: colors, typography, rounded, spacing, components
+   - Lee ## Overview: entiende la referencia visual, personalidad, audiencia
+   - Implementa CADA componente especificado
 
-    context.react_component = react_component
-    context.design_tokens_css = design_tokens_css
-    context.rationale_document = rationale_document
+2. **FIDELIDAD EXTREMA**
+   - Colores: exactamente los #HEX del YAML, sin aproximaciones
+   - Tipografía: fontFamily, fontSize, fontWeight, lineHeight, letterSpacing exactos
+   - Google Fonts: incluye las fuentes mencionadas vía CDN
+   - Espaciado: valores exactos del spacing scale
+   - Rounded: valores exactos del rounded scale
 
-    logger.info("PASO 3 completo. Componente: %d chars | Tokens: %d chars",
-                len(react_component), len(design_tokens_css))
-    return context
+3. **HTML AUTOCONTENIDO**
+   - Empieza con <!DOCTYPE html>, termina con </html>
+   - Todo CSS en <style> dentro del <head>
+   - Tailwind CDN para grid/flex/responsive
+   - JavaScript vanilla MÍNIMO en <script> al final del body (solo si hace falta)
+   - NO React, NO Vue, NO Angular, NO imports de frameworks JS
 
+4. **SECTIONS OBLIGATORIAS**
+   Navbar + Hero + Features (3-4 cards) + Components Showcase + CTA + Footer
 
-def _build_generate_prompt(context: DesignContext) -> str:
-    """Construye el prompt completo con todos los valores del DesignContext aprobado."""
-    neutral_str = ", ".join(context.neutral_palette) if context.neutral_palette else "#FFFFFF, #F8FAFC, #64748B, #1E293B"
-    personality_str = ", ".join(context.brand_personality) if context.brand_personality else "profesional"
+5. **EFECTOS VISUALES**
+   - Si glassmorphism: backdrop-filter: blur(), rgba(), border rgba()
+   - Si gradientes: linear-gradient() exacto
+   - Si sombras: box-shadow exacto del DESIGN.md
+   - Hover states en CSS puro con :hover
 
-    # Mapear layout_type a descripcion de estructura
-    layout_descriptions = {
-        "hero_centered":  "hero centrado + grid de features + CTA + footer",
-        "sidebar_left":   "sidebar de navegacion izquierdo + contenido principal a la derecha",
-        "grid_cards":     "navbar + grid de tarjetas + paginacion + footer",
-        "full_width":     "secciones full-width apiladas: hero, features, testimonios, CTA",
-        "split_screen":   "pantalla dividida 50/50: lado izquierdo texto, lado derecho visual",
-    }
-    layout_desc = layout_descriptions.get(context.layout_type or "", "hero + features + CTA")
+6. **OUTPUT**
+   - SOLO código HTML — sin explicaciones, sin bloques markdown (sin ```)
+   - Primera línea: <!DOCTYPE html>
+   - Última línea: </html>
 
-    return f"""{GENERATE_SYSTEM_PROMPT}
-
-DISENO APROBADO (score: {context.overall_score}/100):
-
-Proyecto: {context.project_type} | Industria: {context.industry}
-Audiencia: {context.target_audience}
-Personalidad de marca: {personality_str}
-
-COLORES (usa EXACTAMENTE estos valores):
---color-primary:    {context.primary_color}
---color-secondary:  {context.secondary_color}
---color-accent:     {context.accent_color}
---color-neutral-50: {context.neutral_palette[0] if context.neutral_palette else '#FFFFFF'}
---color-neutral-100:{context.neutral_palette[1] if len(context.neutral_palette) > 1 else '#F8FAFC'}
---color-neutral-600:{context.neutral_palette[2] if len(context.neutral_palette) > 2 else '#64748B'}
---color-neutral-900:{context.neutral_palette[3] if len(context.neutral_palette) > 3 else '#1E293B'}
-
-TIPOGRAFIA (usa EXACTAMENTE estas fuentes):
---font-heading: '{context.heading_font}', sans-serif
---font-body:    '{context.body_font}', sans-serif
-
-LAYOUT: {context.layout_type} -- estructura: {layout_desc}
-REGLA COMPOSITIVA: {context.composition_rule}
-ARMONIA CROMATICA: {context.color_harmony_type}
-
-BRIEF ORIGINAL: {context.design_brief[:300]}
-
-Genera el componente AHORA siguiendo el formato de delimitadores."""
-
-
-def _build_fix_prompt(invalid_component: str, context: DesignContext) -> str:
-    """Prompt para pedir a Gemini que corrija el componente con error de sintaxis."""
-    return f"""{GENERATE_SYSTEM_PROMPT}
-
-El siguiente componente React tiene un error de sintaxis. Corrígelo manteniendo exactamente
-los mismos colores y fuentes del diseno aprobado:
-
-COLORES:
---color-primary: {context.primary_color}
---color-accent:  {context.accent_color}
---font-heading:  '{context.heading_font}'
---font-body:     '{context.body_font}'
-
-COMPONENTE CON ERROR:
-{invalid_component[:3000]}
-
-Genera la version corregida con el formato de delimitadores."""
-
-
-def _parse_code_output(text: str) -> dict:
-    """
-    Parsea la respuesta de Gemini extrayendo las 3 secciones por delimitadores.
-
-    Retorna dict con claves: react_component, design_tokens_css, rationale_document.
-    Cualquier seccion no encontrada retorna string vacio.
-    """
-    result = {
-        "react_component": "",
-        "design_tokens_css": "",
-        "rationale_document": "",
-    }
-
-    sections = [
-        ("react_component",    _D_REACT, _D_CSS),
-        ("design_tokens_css",  _D_CSS,   _D_MD),
-        ("rationale_document", _D_MD,    _D_END),
-    ]
-
-    for key, start_delim, end_delim in sections:
-        if start_delim in text and end_delim in text:
-            try:
-                content = text.split(start_delim, 1)[1].split(end_delim, 1)[0].strip()
-                # Gemini a veces envuelve el codigo en fences de markdown (```tsx, ```css).
-                # Los eliminamos para que el frontend pueda usar el codigo directamente.
-                if content.startswith("```"):
-                    lines = content.split("\n")
-                    lines = lines[1:]  # eliminar primera linea (```tsx, ```python, etc.)
-                    if lines and lines[-1].strip() == "```":
-                        lines = lines[:-1]  # eliminar cierre ```
-                    content = "\n".join(lines).strip()
-                result[key] = content
-            except (IndexError, ValueError):
-                logger.warning("No se pudo extraer seccion %s del output", key)
-
-    return result
-
-
-async def _validate_react_syntax(component_code: str) -> bool:
-    """
-    Valida que el componente React tiene sintaxis TypeScript/JSX valida.
-    Usa validacion Python pura (rapido, sin dependencias externas).
-    Siempre retorna True o False (nunca lanza excepcion).
-    """
-    return _basic_python_validation(component_code)
-
-
-def _basic_python_validation(code: str) -> bool:
-    """
-    Validacion Python basica de un componente React.
-    Verifica las senales minimas de un componente valido.
-    """
-    checks = [
-        "export default" in code,
-        "return" in code,
-        ("React.FC" in code or "(): " in code or "() =>" in code),
-        code.count("{") >= code.count("}") - 2,  # braces roughly balanced
-    ]
-    return all(checks)
-
-
-def _get_fallback_component(context: DesignContext) -> str:
-    """
-    Template React funcional minimo que siempre es valido.
-    Usa los colores del context directamente como inline styles.
-    Activa cuando Gemini genera codigo con errores de sintaxis.
-    """
-    primary = context.primary_color or "#1E40AF"
-    accent   = context.accent_color  or "#F59E0B"
-    neutral_bg  = context.neutral_palette[0] if context.neutral_palette else "#FFFFFF"
-    neutral_txt = context.neutral_palette[-1] if context.neutral_palette else "#1E293B"
-    neutral_sub = context.neutral_palette[2] if len(context.neutral_palette) > 2 else "#64748B"
-    font_h = context.heading_font or "Inter"
-    font_b = context.body_font    or "Inter"
-    project_type = context.project_type or "proyecto"
-    industry     = context.industry     or ""
-
-    return f"""import React from 'react';
-
-interface QuimeraDesignProps {{}}
-
-const QuimeraDesign: React.FC<QuimeraDesignProps> = () => {{
-  return (
-    <div style={{{{ minHeight: '100vh', backgroundColor: '{neutral_bg}', fontFamily: "'{font_b}', sans-serif" }}}}>
-      {{/* Navigation */}}
-      <nav style={{{{ backgroundColor: '{primary}', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}}}>
-        <span style={{{{ color: 'white', fontFamily: "'{font_h}', sans-serif", fontSize: '1.25rem', fontWeight: '700' }}}}>
-          Quimera
-        </span>
-        <button
-          aria-label="Comenzar ahora"
-          style={{{{ backgroundColor: '{accent}', color: '{neutral_txt}', padding: '0.5rem 1.25rem', borderRadius: '0.5rem', border: 'none', fontWeight: '600', cursor: 'pointer' }}}}
-        >
-          Comenzar
-        </button>
-      </nav>
-
-      {{/* Hero */}}
-      <section style={{{{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '5rem 2rem', textAlign: 'center' }}}}>
-        <h1 style={{{{ fontFamily: "'{font_h}', sans-serif", fontSize: '3rem', fontWeight: '700', color: '{neutral_txt}', marginBottom: '1.5rem', maxWidth: '700px' }}}}>
-          {industry.capitalize() if industry else 'Tu solución digital'} — Diseñado por Quimera AI
-        </h1>
-        <p style={{{{ fontSize: '1.125rem', color: '{neutral_sub}', marginBottom: '2.5rem', maxWidth: '500px', lineHeight: '1.75' }}}}>
-          {context.design_brief[:120] if context.design_brief else 'Descripcion del proyecto.'}
-        </p>
-        <button
-          aria-label="Empezar gratis"
-          style={{{{ backgroundColor: '{primary}', color: 'white', padding: '1rem 2.5rem', borderRadius: '0.75rem', border: 'none', fontSize: '1.125rem', fontWeight: '600', cursor: 'pointer' }}}}
-        >
-          Empezar gratis
-        </button>
-      </section>
-
-      {{/* Features */}}
-      <section style={{{{ padding: '4rem 2rem', maxWidth: '960px', margin: '0 auto' }}}}>
-        <div style={{{{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '2rem' }}}}>
-          {{['Calidad', 'Velocidad', 'Confianza'].map((feature, i) => (
-            <div key={{i}} style={{{{ backgroundColor: 'white', border: `1px solid ${{'{neutral_bg}'}}`, borderRadius: '0.75rem', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}}}>
-              <h3 style={{{{ color: '{primary}', fontFamily: "'{font_h}', sans-serif", fontWeight: '600', marginBottom: '0.75rem' }}}}>{{feature}}</h3>
-              <p style={{{{ color: '{neutral_sub}', fontSize: '0.9rem', lineHeight: '1.6' }}}}>
-                Funcionalidad clave para tu {project_type}.
-              </p>
-            </div>
-          ))}}
-        </div>
-      </section>
-    </div>
-  );
-}};
-
-export default QuimeraDesign;"""
-
-
-def _get_fallback_tokens(context: DesignContext) -> str:
-    """Genera design tokens CSS desde el context cuando Gemini no los produce."""
-    neutral = context.neutral_palette or ["#FFFFFF", "#F8FAFC", "#64748B", "#1E293B"]
-    font_h = context.heading_font or "Inter"
-    font_b = context.body_font    or "Inter"
-
-    # Extraer familia base para Google Fonts (eliminar weights como "Inter Bold")
-    google_h = font_h.split()[0] if font_h else "Inter"
-    google_b = font_b.split()[0] if font_b else "Inter"
-    fonts_to_import = list(dict.fromkeys([google_h, google_b]))  # dedup preservando orden
-    gf_query = "+".join(f.replace(" ", "+") for f in fonts_to_import)
-
-    return f"""@import url('https://fonts.googleapis.com/css2?family={gf_query}:wght@300;400;500;600;700&display=swap');
-
-:root {{
-  /* --- Colores de marca --- */
-  --color-primary:    {context.primary_color or '#1E40AF'};
-  --color-secondary:  {context.secondary_color or '#3B82F6'};
-  --color-accent:     {context.accent_color or '#F59E0B'};
-
-  /* --- Paleta neutral --- */
-  --color-neutral-50:  {neutral[0] if len(neutral) > 0 else '#FFFFFF'};
-  --color-neutral-100: {neutral[1] if len(neutral) > 1 else '#F8FAFC'};
-  --color-neutral-600: {neutral[2] if len(neutral) > 2 else '#64748B'};
-  --color-neutral-900: {neutral[3] if len(neutral) > 3 else '#1E293B'};
-
-  /* --- Tipografia --- */
-  --font-heading: '{font_h}', sans-serif;
-  --font-body:    '{font_b}', sans-serif;
-
-  /* --- Espaciado --- */
-  --spacing-xs:  4px;
-  --spacing-sm:  8px;
-  --spacing-md:  16px;
-  --spacing-lg:  32px;
-  --spacing-xl:  64px;
-  --spacing-2xl: 128px;
-
-  /* --- Border radius --- */
-  --radius-sm:  4px;
-  --radius-md:  8px;
-  --radius-lg:  16px;
-  --radius-xl:  24px;
-  --radius-full: 9999px;
-
-  /* --- Sombras --- */
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
-  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
-}}"""
-
-
-def _get_fallback_rationale(context: DesignContext) -> str:
-    """Genera documento de rationale desde el context."""
-    return f"""# Rationale de Diseno — Quimera AI
-
-## Resumen
-Diseno generado automaticamente para: **{context.design_brief[:200]}**
-Score estetico aprobado: **{context.overall_score}/100** en {context.iteration} iteracion(es).
-
-## Paleta de colores
-- **Primario ({context.primary_color})**: Color principal de la marca. Justificacion: {context.design_rationale.get('primary_color', {}).get('razon', 'Elegido por el Motor de Evaluacion Estetica.')}
-- **Secundario ({context.secondary_color})**: Complemento del primario. Armonia: {context.color_harmony_type}.
-- **Acento ({context.accent_color})**: CTA y elementos de atencion. Contraste alto sobre fondos claros.
-
-## Tipografia
-- **Titulos ({context.heading_font})**: {context.design_rationale.get('heading_font', {}).get('razon', 'Seleccionada por legibilidad y caracter de marca.')}
-- **Cuerpo ({context.body_font})**: {context.design_rationale.get('body_font', {}).get('razon', 'Optima para lectura en pantalla.')}
-
-## Layout y composicion
-- **Layout**: {context.layout_type} — apropiado para {context.project_type} en {context.industry}.
-- **Regla compositiva**: {context.composition_rule}.
-- **Armonia cromatica**: {context.color_harmony_type} (OKLCH validado).
-
-## Accesibilidad
-- Contraste WCAG 2.1 evaluado por el Motor de Evaluacion Estetica.
-- Score general: {context.overall_score}/100 (umbral: 85/100).
+Hazlo HERMOSO y FIEL al DESIGN.md. Este es el output que ve el usuario.
 """
+
+        full_prompt = f"{SYSTEM_PROMPT}\n\n{user_prompt}"
+        html_output = await client.generate_text(
+            prompt=full_prompt,
+            model="flash",
+            temperature=0.5,
+        )
+
+        # Limpiar bloques markdown si Gemini los incluyó de todas formas
+        html_output = html_output.strip()
+        html_output = re.sub(r'^```html\s*\n?', '', html_output)
+        html_output = re.sub(r'^```\s*\n?', '', html_output)
+        html_output = re.sub(r'\n?```\s*$', '', html_output)
+        html_output = html_output.strip()
+
+        context.html_output = html_output
+
+        logger.info(
+            "✅ HTML generado: %d caracteres, %d líneas",
+            len(html_output),
+            html_output.count('\n'),
+        )
+
+        return context
+
+    except Exception as e:
+        logger.error("❌ Error en PASO 2: %s", str(e))
+        raise

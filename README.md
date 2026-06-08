@@ -85,18 +85,23 @@ npm run dev        # http://localhost:3000
 Desde la raíz del repo, con el entorno virtual activo (`(.venv)` visible):
 
 ```powershell
-# Todos los tests rápidos (sin llamadas a Gemini)
-$env:PYTHONPATH = "backend"; pytest tests/ -m "not slow" -v
+# Todos los tests rápidos (sin llamadas a Gemini) — RECOMENDADO ✅
+$env:PYTHONPATH="backend"; pytest tests/ -m "not slow" -v --cache-clear
 
 # Solo tests unitarios (sin credenciales, los más rápidos)
-$env:PYTHONPATH = "backend"; pytest tests/ -m unit -v
+$env:PYTHONPATH="backend"; pytest tests/ -m unit -v
 
 # Un test específico
-$env:PYTHONPATH = "backend"; pytest tests/test_scorers.py::TestCalculateWcagRatio::test_negro_sobre_blanco_es_21 -v
+$env:PYTHONPATH="backend"; pytest tests/test_scorers.py::TestCalculateWcagRatio::test_negro_sobre_blanco_es_21 -v
+
+# Todos los tests (incluyendo tests lentos que llaman a Gemini)
+$env:PYTHONPATH="backend"; pytest tests/ -v --cache-clear
 
 # Tests lentos (llaman a Gemini — requiere GOOGLE_API_KEY en .env)
-$env:PYTHONPATH = "backend"; pytest tests/ -m slow -v
+$env:PYTHONPATH="backend"; pytest tests/ -m slow -v
 ```
+
+> **Nota:** Los tests con `@pytest.mark.slow` requieren `GOOGLE_API_KEY` configurada en `backend/.env`. Si la API falla, el test se convierte en SKIP automáticamente (ver `tests/conftest.py`).
 
 > **Nota:** en PowerShell `PYTHONPATH=backend pytest ...` no funciona — hay que usar `$env:PYTHONPATH = "backend"; pytest ...`
 

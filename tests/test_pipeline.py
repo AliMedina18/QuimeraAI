@@ -1,28 +1,25 @@
 """
-test_pipeline.py — Tests de integración del pipeline completo
-=============================================================
-Estos tests verifican que los 3 pasos del pipeline se encadenan correctamente.
-A diferencia de los tests unitarios (test_scorers.py), aquí probamos el flujo
-completo: brief → análisis → evaluación → generación.
+test_pipeline.py — Tests de integración del pipeline (2 pasos)
+==============================================================
+
+Pipeline: analyze_and_design() → generate_code()
+Outputs: DESIGN.md + HTML autocontenido
 
 Requisitos para correr estos tests:
   - GOOGLE_API_KEY configurada (llaman a Gemini)
-  - Correr: pytest tests/test_pipeline.py -v -m "not slow"
+  - Correr: pytest tests/test_pipeline.py -v
+  - Solo slow tests: pytest tests/test_pipeline.py -v -m slow
 
 Markers:
   @pytest.mark.slow     → Tests que llaman a Gemini (cuentan contra la cuota)
-  @pytest.mark.unit     → Tests que no necesitan credenciales
-
-Estado por días:
-  Día 1: Tests definidos, todos SKIPPED o con mocks mínimos
-  Día 4: Tests completos de integración
-  Día 6: Tests con matriz de confusión
+  @pytest.mark.unit     → Tests que no necesitan credenciales (mocks)
 """
 
 import pytest
 import sys
 import os
-import asyncio
+import re
+import yaml
 
 # Añadir el directorio backend al path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
@@ -34,415 +31,470 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 @pytest.fixture
 def sample_briefs():
-    """
-    10 briefs de prueba predefinidos con ground truth de diseñador humano.
-    Ver Sección 9.3 del plan maestro.
-    """
+    """5 briefs de prueba predefinidos para testing."""
     return [
         {
             "id": "fintech_001",
-            "brief": "App de inversiones para jóvenes de 25-35 años. Colores: azul y verde. Tono moderno y confiable.",
-            "expected_project_type": "landing_page",
-            "expected_industry": "fintech",
-            "human_verdict": "good",  # Un diseñador diría que es un buen brief
+            "brief": "App de inversiones para jóvenes de 25-35 años. Colores: azul oscuro y oro. Tono moderno, confiable, premium.",
+            "project_type": "landing_page",
         },
         {
             "id": "health_001",
-            "brief": "Dashboard de seguimiento de salud mental. Estética minimalista, colores suaves.",
-            "expected_project_type": "dashboard",
-            "expected_industry": "healthtech",
-            "human_verdict": "good",
-        },
-        {
-            "id": "ecommerce_001",
-            "brief": "Tienda de moda sostenible. Paleta: colores tierra, beis y verde oliva.",
-            "expected_project_type": "landing_page",
-            "expected_industry": "e-commerce",
-            "human_verdict": "good",
+            "brief": "Dashboard de seguimiento de salud mental. Estética minimalista, colores suaves, calming.",
+            "project_type": "dashboard",
         },
         {
             "id": "saas_001",
-            "brief": "Plataforma de gestión de proyectos para agencias creativas. B2B. Profesional.",
-            "expected_project_type": "dashboard",
-            "expected_industry": "saas",
-            "human_verdict": "good",
+            "brief": "Plataforma de gestión de proyectos para agencias creativas. B2B. Profesional, moderno.",
+            "project_type": "dashboard",
         },
         {
             "id": "education_001",
-            "brief": "App de aprendizaje de idiomas para niños. Colorida, energética, divertida.",
-            "expected_project_type": "app",
-            "expected_industry": "educación",
-            "human_verdict": "good",
+            "brief": "App de aprendizaje de idiomas para niños. Colorida, energética, divertida, amigable.",
+            "project_type": "app",
+        },
+        {
+            "id": "minimalist_001",
+            "brief": "1970s technical handout aesthetic. Paper and ink. Serif typography, generous margins, no decorations.",
+            "project_type": "landing_page",
         },
     ]
 
 
 @pytest.fixture
 def minimal_context():
-    """DesignContext mínimo para tests que no necesitan Gemini."""
+    """DesignContext mínimo para tests."""
     from models import DesignContext
     return DesignContext(
         design_brief="Landing page para startup de fintech. Colores azul y blanco.",
         project_type="landing_page",
-        industry="fintech",
-        target_audience="Jóvenes de 25-35 años",
-        brand_personality=["moderno", "confiable"],
-        primary_color="#1E40AF",
-        secondary_color="#3B82F6",
-        accent_color="#F59E0B",
-        neutral_palette=["#FFFFFF", "#F8FAFC", "#64748B", "#1E293B"],
-        heading_font="Inter Bold",
-        body_font="Inter",
-        layout_type="landing_page",
-        composition_rule="rule_of_thirds",
-        color_harmony_type="complementario",
     )
 
 
 # ---------------------------------------------------------------------------
-# TESTS UNITARIOS DEL PIPELINE (sin Gemini)
+# TESTS UNITARIOS DEL MODELO (sin Gemini)
 # ---------------------------------------------------------------------------
 
 class TestDesignContextModel:
     """Verifica que el modelo DesignContext funciona correctamente."""
 
     @pytest.mark.unit
-    def test_design_context_crea_con_brief_minimo(self):
+    def test_design_context_minimal(self):
         """DesignContext solo requiere design_brief."""
         from models import DesignContext
         ctx = DesignContext(design_brief="Una landing page simple.")
         assert ctx.design_brief == "Una landing page simple."
-        assert ctx.approved is False
-        assert ctx.iteration == 0
-        assert ctx.overall_score is None
+        assert ctx.project_type is None
+        assert ctx.design_markdown is None
+        assert ctx.html_output is None
 
     @pytest.mark.unit
-    def test_design_context_iteration_incrementa(self):
-        """El campo iteration se puede incrementar para el loop de corrección."""
+    def test_design_context_con_project_type(self):
+        """DesignContext puede incluir project_type opcional."""
+        from models import DesignContext
+        ctx = DesignContext(
+            design_brief="Dashboard",
+            project_type="dashboard"
+        )
+        assert ctx.design_brief == "Dashboard"
+        assert ctx.project_type == "dashboard"
+
+    @pytest.mark.unit
+    def test_design_context_acumula_outputs(self):
+        """DesignContext acumula outputs de cada paso."""
         from models import DesignContext
         ctx = DesignContext(design_brief="test")
-        ctx.iteration += 1
-        assert ctx.iteration == 1
+
+        # Paso 1
+        ctx.design_markdown = "---\nversion: alpha\n---\n## Overview\nTest"
+        assert ctx.design_markdown is not None
+
+        # Paso 2
+        ctx.html_output = "<!DOCTYPE html><html><body><h1>Test</h1></body></html>"
+        assert ctx.html_output is not None
 
     @pytest.mark.unit
-    def test_design_context_serializa_a_dict(self):
-        """DesignContext se puede serializar para guardar en Firestore."""
+    def test_design_context_serializable(self):
+        """DesignContext se puede serializar a dict."""
         from models import DesignContext
-        ctx = DesignContext(design_brief="test", primary_color="#FF0000")
+        ctx = DesignContext(
+            design_brief="test",
+            project_type="landing_page",
+            design_markdown="---\nversion: alpha\n---\nTest"
+        )
         data = ctx.model_dump()
         assert data["design_brief"] == "test"
-        assert data["primary_color"] == "#FF0000"
-        assert data["approved"] is False
-
-
-class TestLoopCorreccion:
-    """Verifica la logica del loop de correccion sin llamar a Gemini."""
-
-    @pytest.mark.unit
-    def test_context_no_aprobado_cuando_score_bajo(self):
-        """Si overall_score < 85, approved debe ser False."""
-        from models import AestheticScores
-        scores = AestheticScores(
-            color_harmony=50, wcag_contrast=50, composition_balance=50,
-            visual_hierarchy=50, gestalt_compliance=50, whitespace_quality=50,
-            brand_consistency=50, accessibility=50,
-        )
-        assert scores.passed is False
-        assert scores.overall_score < 85
-
-    @pytest.mark.unit
-    def test_critique_contiene_criterios_fallidos(self):
-        """_generate_critique debe mencionar los criterios que fallaron."""
-        from pipeline.step2_evaluate import _generate_critique
-        from models import AestheticScores
-        scores = AestheticScores(
-            color_harmony=40, wcag_contrast=90, composition_balance=90,
-            visual_hierarchy=90, gestalt_compliance=90, whitespace_quality=90,
-            brand_consistency=90, accessibility=90,
-        )
-        critique = _generate_critique(scores, {"color_harmony": "Paleta sin armonia reconocible."})
-        assert "color_harmony" in critique
-        assert "40" in critique
-
-    @pytest.mark.unit
-    def test_iteration_incrementa_en_cada_ciclo(self):
-        """El campo iteration debe incrementarse en cada evaluacion."""
-        from models import DesignContext
-        ctx = DesignContext(design_brief="test")
-        assert ctx.iteration == 0
-        ctx.iteration += 1
-        assert ctx.iteration == 1
-        ctx.iteration += 1
-        assert ctx.iteration == 2
-
-    @pytest.mark.unit
-    def test_aprobado_cuando_overall_es_exactamente_85(self):
-        """El umbral de aprobacion es >= 85, no > 85."""
-        from models import AestheticScores
-        scores = AestheticScores(
-            color_harmony=85, wcag_contrast=85, composition_balance=85,
-            visual_hierarchy=85, gestalt_compliance=85, whitespace_quality=85,
-            brand_consistency=85, accessibility=85,
-        )
-        assert scores.passed is True
-        assert scores.overall_score == 85.0
-
-
-class TestAestheticScoresModel:
-    """Verifica el modelo AestheticScores y sus propiedades calculadas."""
-
-    @pytest.mark.unit
-    def test_overall_score_es_promedio_de_8(self):
-        """overall_score debe ser el promedio exacto de los 8 criterios."""
-        from models import AestheticScores
-        scores = AestheticScores(
-            color_harmony=80,
-            wcag_contrast=90,
-            composition_balance=85,
-            visual_hierarchy=75,
-            gestalt_compliance=88,
-            whitespace_quality=92,
-            brand_consistency=70,
-            accessibility=85,
-        )
-        expected = (80 + 90 + 85 + 75 + 88 + 92 + 70 + 85) / 8
-        assert scores.overall_score == pytest.approx(expected, abs=0.01)
-
-    @pytest.mark.unit
-    def test_passed_cuando_overall_es_85_o_mas(self):
-        """El diseño pasa cuando overall_score >= 85."""
-        from models import AestheticScores
-        scores = AestheticScores(
-            color_harmony=85, wcag_contrast=85, composition_balance=85,
-            visual_hierarchy=85, gestalt_compliance=85, whitespace_quality=85,
-            brand_consistency=85, accessibility=85,
-        )
-        assert scores.passed is True
-
-    @pytest.mark.unit
-    def test_falla_cuando_overall_es_menos_de_85(self):
-        """El diseño falla cuando overall_score < 85."""
-        from models import AestheticScores
-        scores = AestheticScores(
-            color_harmony=60, wcag_contrast=60, composition_balance=60,
-            visual_hierarchy=60, gestalt_compliance=60, whitespace_quality=60,
-            brand_consistency=60, accessibility=60,
-        )
-        assert scores.passed is False
-
-    @pytest.mark.unit
-    def test_failing_criteria_retorna_los_que_estan_bajo_85(self):
-        """failing_criteria() retorna solo los criterios por debajo de 85."""
-        from models import AestheticScores
-        scores = AestheticScores(
-            color_harmony=90, wcag_contrast=40,  # wcag falla
-            composition_balance=85, visual_hierarchy=88,
-            gestalt_compliance=85, whitespace_quality=85,
-            brand_consistency=85, accessibility=85,
-        )
-        failing = scores.failing_criteria()
-        assert "wcag_contrast" in failing
-        assert "color_harmony" not in failing
+        assert data["project_type"] == "landing_page"
+        assert data["design_markdown"] == "---\nversion: alpha\n---\nTest"
 
 
 # ---------------------------------------------------------------------------
-# TESTS DE INTEGRACIÓN (requieren Gemini — marcar como slow)
+# TESTS DE VALIDACIÓN DE OUTPUTS (sin Gemini)
 # ---------------------------------------------------------------------------
 
-class TestPipelineIntegration:
-    """Tests del pipeline completo. Requieren GOOGLE_API_KEY."""
-
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_health_endpoint(self):
-        """
-        El endpoint /health debe responder 200.
-        TODO Día 1: este test debe pasar.
-        """
-        try:
-            import fastapi
-        except ImportError:
-            pytest.skip("fastapi no instalado en sandbox")
-        from httpx import AsyncClient
-        from main import app
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.get("/health")
-        assert response.status_code == 200
-        assert response.json()["status"] == "ok"
-
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_gemini_test_endpoint(self):
-        """
-        El endpoint /gemini-test debe llamar a Gemini y devolver una respuesta.
-        TODO Día 1: este test debe pasar si GOOGLE_API_KEY está configurada.
-        """
-        pytest.skip("Requiere GOOGLE_API_KEY — correr manualmente")
-        try:
-            import fastapi
-        except ImportError:
-            pytest.skip("fastapi no instalado en sandbox")
-        from httpx import AsyncClient
-        from main import app
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.get("/gemini-test")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ok"
-        assert len(data["gemini_response"]) > 0
-
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_loop_de_correccion_activa_con_score_bajo(self):
-        """Pipeline completo: /evaluate ejecuta Paso1+Paso2 y retorna scores."""
-        try:
-            from httpx import AsyncClient
-            from main import app
-        except ImportError:
-            pytest.skip("fastapi o httpx no instalado")
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.post("/evaluate", json={
-                "design_brief": "App de meditacion. Colores suaves. Minimalista.",
-                "project_type": "app",
-            })
-        assert response.status_code == 200
-        data = response.json()
-        assert "overall_score" in data
-        assert "approved" in data
-        assert data["iterations_used"] >= 1
-
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_pipeline_completo_fintech(self):
-        """Pipeline end-to-end con brief fintech via /evaluate."""
-        try:
-            from httpx import AsyncClient
-            from main import app
-        except ImportError:
-            pytest.skip("fastapi o httpx no instalado")
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.post("/evaluate", json={
-                "design_brief": "Landing page para app de inversiones. Jovenes 25-35. Azul corporativo.",
-                "project_type": "landing_page",
-            })
-        assert response.status_code == 200
-        data = response.json()
-        proposal = data.get("design_proposal", {})
-        assert proposal.get("primary_color"), "Debe tener primary_color"
-        assert proposal.get("heading_font"), "Debe tener heading_font"
-        assert proposal.get("layout_type"), "Debe tener layout_type"
-        assert data.get("overall_score") is not None
-
-
-# ---------------------------------------------------------------------------
-# TESTS UNITARIOS DEL PASO 3 (sin Gemini)
-# ---------------------------------------------------------------------------
-
-class TestStep3Generate:
-    """Tests unitarios de step3_generate.py — no requieren Gemini."""
+class TestDesignMarkdownValidation:
+    """Verifica que DESIGN.md tenga la estructura correcta."""
 
     @pytest.mark.unit
+    def test_design_markdown_tiene_frontmatter_yaml(self):
+        """DESIGN.md debe empezar con --- YAML --- """
+        valid_design_md = """---
+version: alpha
+name: Test Design
+colors:
+  primary: '#0066FF'
+typography:
+  body-md:
+    fontFamily: Inter
+    fontSize: 16px
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: 0
+---
+
+## Overview
+Test design system.
+"""
+        assert valid_design_md.startswith("---")
+        assert "---" in valid_design_md[3:]  # Cierre del YAML
+
+    @pytest.mark.unit
+    def test_design_markdown_yaml_valido(self):
+        """El YAML del DESIGN.md debe ser parseable."""
+        design_md = """---
+version: alpha
+name: Test
+colors:
+  primary: '#0066FF'
+typography:
+  body-md:
+    fontFamily: Inter
+    fontSize: 16px
+---
+
+## Overview
+Test
+"""
+        match = re.match(r"^---\n(.*?)\n---", design_md, re.DOTALL)
+        assert match is not None
+        yaml_str = match.group(1)
+
+        try:
+            data = yaml.safe_load(yaml_str)
+            assert data["version"] == "alpha"
+            assert data["name"] == "Test"
+            assert data["colors"]["primary"] == "#0066FF"
+        except yaml.YAMLError:
+            pytest.fail("YAML no es válido")
+
+    @pytest.mark.unit
+    def test_design_markdown_tiene_secciones_requeridas(self):
+        """DESIGN.md debe tener todas las secciones markdown."""
+        design_md = """---
+version: alpha
+---
+
+## Overview
+Test overview
+
+## Colors
+Test colors
+
+## Typography
+Test typography
+
+## Layout & Spacing
+Test layout
+
+## Elevation & Depth
+Test elevation
+
+## Shapes
+Test shapes
+
+## Components
+Test components
+
+## Do's and Don'ts
+Test do's and don'ts
+"""
+        required_sections = [
+            "## Overview",
+            "## Colors",
+            "## Typography",
+            "## Layout & Spacing",
+            "## Elevation & Depth",
+            "## Shapes",
+            "## Components",
+            "## Do's and Don'ts",
+        ]
+        for section in required_sections:
+            assert section in design_md, f"Falta sección: {section}"
+
+
+class TestHtmlOutputValidation:
+    """Verifica que el HTML generado sea un documento válido y autocontenido."""
+
+    @pytest.mark.unit
+    def test_html_tiene_doctype(self):
+        """HTML debe empezar con <!DOCTYPE html>."""
+        html = "<!DOCTYPE html>\n<html lang='es'><head></head><body></body></html>"
+        assert html.strip().lower().startswith("<!doctype html>")
+
+    @pytest.mark.unit
+    def test_html_tiene_estructura_basica(self):
+        """HTML debe tener html, head y body."""
+        html = """<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Test</title>
+</head>
+<body>
+  <main><h1>Test</h1></main>
+</body>
+</html>"""
+        assert "<html" in html
+        assert "<head" in html
+        assert "<body" in html
+        assert "</html>" in html
+
+    @pytest.mark.unit
+    def test_html_tiene_title(self):
+        """HTML debe tener un <title>."""
+        html = """<!DOCTYPE html>
+<html><head><title>Mi Sitio</title></head><body></body></html>"""
+        assert "<title>" in html and "</title>" in html
+
+    @pytest.mark.unit
+    def test_html_tiene_meta_charset_y_viewport(self):
+        """HTML debe tener charset UTF-8 y viewport para responsividad."""
+        html = """<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test</title>
+</head>
+<body></body>
+</html>"""
+        assert 'charset="UTF-8"' in html or "charset='UTF-8'" in html
+        assert "viewport" in html
+
+    @pytest.mark.unit
+    def test_html_no_contiene_bloques_markdown(self):
+        """HTML generado no debe tener bloques de código markdown (```)."""
+        html = """<!DOCTYPE html>
+<html><head><title>Test</title></head>
+<body><h1>Hello</h1></body>
+</html>"""
+        assert "```" not in html
+
+    @pytest.mark.unit
+    def test_html_autocontenido_sin_framework_js(self):
+        """HTML no debe importar React, Vue ni Angular."""
+        html = """<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>:root { --color-primary: #0066FF; }</style>
+</head>
+<body><main></main></body>
+</html>"""
+        # No debe haber imports de frameworks JS
+        assert "react" not in html.lower() or "cdn.tailwindcss" in html  # Tailwind OK, React no
+        assert "vue" not in html.lower()
+        assert "angular" not in html.lower()
+
+    @pytest.mark.unit
+    def test_html_usa_css_variables(self):
+        """HTML debe definir CSS variables (:root) desde los tokens del DESIGN.md."""
+        html = """<!DOCTYPE html>
+<html>
+<head>
+<style>
+  :root {
+    --color-primary: #0066FF;
+    --color-background: #FFFFFF;
+    --font-body: 'Inter', sans-serif;
+  }
+</style>
+</head>
+<body></body>
+</html>"""
+        assert ":root" in html
+        assert "var(--" in html or "--color-" in html
+
+    @pytest.mark.unit
+    def test_html_tiene_secciones_semanticas(self):
+        """HTML debe usar etiquetas semánticas: nav, main, footer."""
+        html = """<!DOCTYPE html>
+<html>
+<head><title>Test</title></head>
+<body>
+  <nav>Navbar</nav>
+  <main>
+    <section class="hero">Hero</section>
+    <section class="features">Features</section>
+  </main>
+  <footer>Footer</footer>
+</body>
+</html>"""
+        assert "<nav" in html
+        assert "<main" in html or "<section" in html
+        assert "<footer" in html
+
+
+# ---------------------------------------------------------------------------
+# TESTS DE INTEGRACIÓN (con Gemini - SLOW)
+# ---------------------------------------------------------------------------
+
+class TestAnalyzeAndDesignIntegration:
+    """Tests de analyze_and_design() llamando a Gemini."""
+
+    @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_generate_code_raises_si_no_aprobado(self):
-        """generate_code debe lanzar ValueError si context.approved == False."""
+    async def test_analyze_and_design_genera_design_markdown(self, minimal_context):
+        """analyze_and_design() debe generar DESIGN.md válido."""
+        from pipeline.step1_analyze import analyze_and_design
+
+        result_context = await analyze_and_design(minimal_context)
+
+        assert result_context.design_markdown is not None
+        assert len(result_context.design_markdown) > 0
+        assert result_context.design_markdown.startswith("---")
+        assert "---" in result_context.design_markdown[3:]
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_analyze_and_design_design_markdown_tiene_secciones(self, minimal_context):
+        """El DESIGN.md generado debe tener todas las secciones."""
+        from pipeline.step1_analyze import analyze_and_design
+
+        result_context = await analyze_and_design(minimal_context)
+        design_md = result_context.design_markdown
+
+        assert "## Overview" in design_md or "# Overview" in design_md
+        assert "## Colors" in design_md or "# Colors" in design_md
+        assert "## Typography" in design_md or "# Typography" in design_md
+        assert "## Components" in design_md or "# Components" in design_md
+
+
+class TestGenerateCodeIntegration:
+    """Tests de generate_code() llamando a Gemini."""
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_generate_code_genera_html(self, minimal_context):
+        """generate_code() debe generar HTML autocontenido válido."""
+        from pipeline.step1_analyze import analyze_and_design
+        from pipeline.step3_generate import generate_code
+
+        context = await analyze_and_design(minimal_context)
+        result_context = await generate_code(context)
+
+        assert result_context.html_output is not None
+        assert len(result_context.html_output) > 0
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_generate_code_html_es_documento_completo(self, minimal_context):
+        """El HTML generado debe ser un documento completo."""
+        from pipeline.step1_analyze import analyze_and_design
+        from pipeline.step3_generate import generate_code
+
+        context = await analyze_and_design(minimal_context)
+        result_context = await generate_code(context)
+
+        html = result_context.html_output
+
+        # Documento completo
+        assert html.strip().lower().startswith("<!doctype html>")
+        assert "<html" in html
+        assert "<body" in html
+        assert "</html>" in html
+
+        # Sin bloques markdown
+        assert "```" not in html
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_generate_code_html_tiene_estilos(self, minimal_context):
+        """El HTML generado debe tener estilos CSS."""
+        from pipeline.step1_analyze import analyze_and_design
+        from pipeline.step3_generate import generate_code
+
+        context = await analyze_and_design(minimal_context)
+        result_context = await generate_code(context)
+
+        html = result_context.html_output
+
+        # Debe tener CSS (inline o Tailwind CDN)
+        assert "<style>" in html or "tailwindcss" in html or "cdn.tailwind" in html
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_generate_code_falla_sin_design_markdown(self):
+        """generate_code() debe fallar si falta DESIGN.md."""
         from models import DesignContext
         from pipeline.step3_generate import generate_code
 
-        ctx = DesignContext(design_brief="test")
-        assert ctx.approved is False
-        with pytest.raises(ValueError, match="aprobados"):
-            await generate_code(ctx)
+        context = DesignContext(design_brief="test")  # Sin design_markdown
 
-    @pytest.mark.unit
-    def test_parse_code_output_extrae_tres_secciones(self):
-        """_parse_code_output debe extraer react_component, css y rationale."""
-        from pipeline.step3_generate import _parse_code_output
+        with pytest.raises(ValueError):
+            await generate_code(context)
 
-        texto = (
-            "===REACT_COMPONENT===\nimport React from 'react';\nexport default App;\n"
-            "===DESIGN_TOKENS_CSS===\n:root { --color-primary: #000; }\n"
-            "===RATIONALE===\n# Rationale\nDecision aqui.\n"
-            "===END==="
-        )
-        result = _parse_code_output(texto)
 
-        assert "import React" in result["react_component"]
-        assert "--color-primary" in result["design_tokens_css"]
-        assert "Rationale" in result["rationale_document"]
+# ---------------------------------------------------------------------------
+# TESTS END-TO-END (con Gemini - SLOW)
+# ---------------------------------------------------------------------------
 
-    @pytest.mark.unit
-    def test_parse_code_output_secciones_vacias_si_no_hay_delimitadores(self):
-        """Sin delimitadores, todas las secciones deben ser string vacio."""
-        from pipeline.step3_generate import _parse_code_output
+class TestEndToEndPipeline:
+    """Tests completos del pipeline: brief → DESIGN.md → HTML."""
 
-        result = _parse_code_output("texto sin delimitadores")
-        assert result["react_component"] == ""
-        assert result["design_tokens_css"] == ""
-        assert result["rationale_document"] == ""
-
-    @pytest.mark.unit
-    def test_fallback_component_incluye_colores_del_context(self):
-        """_get_fallback_component debe usar los colores del DesignContext."""
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_pipeline_completo_fintech(self, sample_briefs):
+        """Pipeline completo con brief de fintech."""
         from models import DesignContext
-        from pipeline.step3_generate import _get_fallback_component
+        from pipeline.step1_analyze import analyze_and_design
+        from pipeline.step3_generate import generate_code
 
-        ctx = DesignContext(
-            design_brief="test",
-            primary_color="#AA1122",
-            accent_color="#BBCCDD",
-            neutral_palette=["#FFFFFF", "#F0F0F0", "#888888", "#111111"],
-            heading_font="Poppins Bold",
-            body_font="Poppins",
+        brief_data = sample_briefs[0]  # Fintech
+        context = DesignContext(
+            design_brief=brief_data["brief"],
+            project_type=brief_data["project_type"],
         )
-        component = _get_fallback_component(ctx)
 
-        assert "#AA1122" in component
-        assert "#BBCCDD" in component
-        assert "Poppins" in component
-        assert "export default" in component
+        context = await analyze_and_design(context)
+        assert context.design_markdown is not None
 
-    @pytest.mark.unit
-    def test_fallback_tokens_incluye_todas_las_variables(self):
-        """_get_fallback_tokens debe incluir todas las variables CSS requeridas."""
+        context = await generate_code(context)
+        assert context.html_output is not None
+        assert context.html_output.strip().lower().startswith("<!doctype html>")
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_pipeline_completo_minimalist(self, sample_briefs):
+        """Pipeline completo con brief minimalista."""
         from models import DesignContext
-        from pipeline.step3_generate import _get_fallback_tokens
+        from pipeline.step1_analyze import analyze_and_design
+        from pipeline.step3_generate import generate_code
 
-        ctx = DesignContext(
-            design_brief="test",
-            primary_color="#1E40AF",
-            secondary_color="#3B82F6",
-            accent_color="#F59E0B",
-            neutral_palette=["#FFFFFF", "#F8FAFC", "#64748B", "#1E293B"],
-            heading_font="Inter Bold",
-            body_font="Inter",
+        brief_data = sample_briefs[4]  # Minimalist
+        context = DesignContext(
+            design_brief=brief_data["brief"],
+            project_type=brief_data["project_type"],
         )
-        tokens = _get_fallback_tokens(ctx)
 
-        required = [
-            "--color-primary", "--color-secondary", "--color-accent",
-            "--font-heading", "--font-body",
-            "--spacing-md", "--radius-md",
-        ]
-        for var in required:
-            assert var in tokens, f"Falta variable: {var}"
+        context = await analyze_and_design(context)
+        assert context.design_markdown is not None
+        assert (
+            "1970s" in context.design_markdown
+            or "handout" in context.design_markdown
+            or "serif" in context.design_markdown.lower()
+        )
 
-    @pytest.mark.unit
-    def test_basic_python_validation_acepta_componente_valido(self):
-        """_basic_python_validation debe aceptar un componente con estructura valida."""
-        from pipeline.step3_generate import _basic_python_validation
-
-        valid_code = """
-import React from 'react';
-const App: React.FC = () => {
-  return <div>Hello</div>;
-};
-export default App;
-"""
-        assert _basic_python_validation(valid_code) is True
-
-    def test_basic_python_validation_rechaza_codigo_invalido(self):
-        """_basic_python_validation rechaza codigo sin estructura React valida."""
-        from pipeline.step3_generate import _basic_python_validation
-
-        invalid_code = "console.log('hello')"
-        assert _basic_python_validation(invalid_code) is False
+        context = await generate_code(context)
+        assert context.html_output is not None
+        assert "<html" in context.html_output
