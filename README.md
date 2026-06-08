@@ -59,14 +59,15 @@ GOOGLE_API_KEY=tu_clave_aqui
 ### 5. Correr el backend localmente
 
 ```powershell
-cd backend
-py -3.12 -m uvicorn main:app --reload --port 8000
+# Desde la raíz del repo (NO desde backend/)
+py -3.12 -m uvicorn backend.main:app --reload --port 8000
 ```
 
 Endpoints disponibles:
 - `GET http://localhost:8000/health` — health check
 - `GET http://localhost:8000/gemini-test` — verifica conexión con Gemini
 - `GET http://localhost:8000/docs` — Swagger UI
+- `POST http://localhost:8000/generar-diseno` — genera diseño (4-step pipeline)
 
 ---
 
@@ -86,19 +87,19 @@ Desde la raíz del repo, con el entorno virtual activo (`(.venv)` visible):
 
 ```powershell
 # Todos los tests rápidos (sin llamadas a Gemini) — RECOMENDADO ✅
-$env:PYTHONPATH="backend"; pytest tests/ -m "not slow" -v --cache-clear
+$env:PYTHONPATH="backend"; py -3.12 -m pytest tests/ -m "not slow" -v --cache-clear
 
 # Solo tests unitarios (sin credenciales, los más rápidos)
-$env:PYTHONPATH="backend"; pytest tests/ -m unit -v
+$env:PYTHONPATH="backend"; py -3.12 -m pytest tests/ -m unit -v
 
 # Un test específico
-$env:PYTHONPATH="backend"; pytest tests/test_scorers.py::TestCalculateWcagRatio::test_negro_sobre_blanco_es_21 -v
+$env:PYTHONPATH="backend"; py -3.12 -m pytest tests/test_scorers.py::TestCalculateWcagRatio::test_negro_sobre_blanco_es_21 -v
 
 # Todos los tests (incluyendo tests lentos que llaman a Gemini)
-$env:PYTHONPATH="backend"; pytest tests/ -v --cache-clear
+$env:PYTHONPATH="backend"; py -3.12 -m pytest tests/ -v --cache-clear
 
 # Tests lentos (llaman a Gemini — requiere GOOGLE_API_KEY en .env)
-$env:PYTHONPATH="backend"; pytest tests/ -m slow -v
+$env:PYTHONPATH="backend"; py -3.12 -m pytest tests/ -m slow -v
 ```
 
 > **Nota:** Los tests con `@pytest.mark.slow` requieren `GOOGLE_API_KEY` configurada en `backend/.env`. Si la API falla, el test se convierte en SKIP automáticamente (ver `tests/conftest.py`).
