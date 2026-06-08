@@ -16,6 +16,7 @@ INTEGRACIÓN COMPLETA de design.md-main:
 import logging
 from models import DesignContext
 from services.gemini_client import GeminiClient
+from services.design_templates import get_templates_manager
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +258,220 @@ TODO token definido en YAML DEBE ser usado o mencionado en prose.
 """
 
 
+DESIGN_MD_REAL_EXAMPLES = """
+## EJEMPLO REAL 1: Airbnb (Marketplace Premium)
+
+---
+version: alpha
+name: Airbnb-design-analysis
+description: A warm, generous consumer marketplace anchored on a clean white canvas and Airbnb Rausch (#ff385c), the single brand voltage that carries every primary CTA, search-button orb, and rating dot. Type runs Airbnb Cereal VF at modest weights — display sits at 22–28px in weight 500/600 rather than the heavy 700+ that fintech and enterprise systems use; the brand trusts photography and generous whitespace over typographic muscle. Pill-shaped search bars (`{rounded.full}`), softly rounded property cards (`{rounded.lg}` ~14px), and 32px button radii read as friendly and human.
+
+colors:
+  primary: "#ff385c"
+  primary-active: "#e00b41"
+  primary-disabled: "#ffd1da"
+  ink: "#222222"
+  body: "#3f3f3f"
+  muted: "#6a6a6a"
+  canvas: "#ffffff"
+  surface-soft: "#f7f7f7"
+  surface-strong: "#f2f2f2"
+  on-primary: "#ffffff"
+
+typography:
+  display-xl:
+    fontFamily: "'Airbnb Cereal VF', Circular, sans-serif"
+    fontSize: 28px
+    fontWeight: 700
+    lineHeight: 1.43
+    letterSpacing: 0
+  display-lg:
+    fontFamily: "'Airbnb Cereal VF', Circular, sans-serif"
+    fontSize: 22px
+    fontWeight: 500
+    lineHeight: 1.18
+  body-md:
+    fontFamily: "'Airbnb Cereal VF', Circular, sans-serif"
+    fontSize: 16px
+    fontWeight: 400
+    lineHeight: 1.5
+  caption:
+    fontFamily: "'Airbnb Cereal VF', Circular, sans-serif"
+    fontSize: 14px
+    fontWeight: 500
+
+rounded:
+  xs: 4px
+  sm: 8px
+  md: 14px
+  lg: 20px
+  full: 9999px
+
+spacing:
+  xs: 4px
+  sm: 8px
+  md: 12px
+  base: 16px
+  lg: 24px
+  xl: 32px
+
+components:
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+    typography: "{typography.button-md}"
+    rounded: "{rounded.sm}"
+    padding: 14px 24px
+    height: 48px
+  button-primary-active:
+    backgroundColor: "{colors.primary-active}"
+    textColor: "{colors.on-primary}"
+  card-property:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.lg}"
+    padding: 12px
+---
+
+## EJEMPLO REAL 2: Figma (Editorial + Pastel)
+
+---
+version: alpha
+name: Figma-design-analysis
+description: "A confident black-and-white editorial frame interrupted by oversized, hand-cut pastel color blocks. The marketing canvas is rigorously monochrome — figmaSans variable type, pure white surfaces, pure black ink, pill-shaped CTAs — while each story section drops the page into a saturated lime, lavender, cream, mint, or pink panel that reads like a sticky note placed on a clean desk. Technical AND joyful."
+
+colors:
+  primary: "#000000"
+  on-primary: "#ffffff"
+  ink: "#000000"
+  canvas: "#ffffff"
+  block-lime: "#dceeb1"
+  block-lilac: "#c5b0f4"
+  block-cream: "#f4ecd6"
+  block-pink: "#efd4d4"
+  block-mint: "#c8e6cd"
+  accent-magenta: "#ff3d8b"
+  semantic-success: "#1ea64a"
+
+typography:
+  display-xl:
+    fontFamily: figmaSans
+    fontSize: 86px
+    fontWeight: 340
+    lineHeight: 1.00
+    letterSpacing: -1.72px
+  headline:
+    fontFamily: figmaSans
+    fontSize: 26px
+    fontWeight: 540
+    lineHeight: 1.35
+  body:
+    fontFamily: figmaSans
+    fontSize: 18px
+    fontWeight: 320
+    lineHeight: 1.45
+  caption:
+    fontFamily: figmaMono
+    fontSize: 12px
+    fontWeight: 400
+
+rounded:
+  sm: 6px
+  md: 8px
+  lg: 24px
+  pill: 50px
+
+spacing:
+  xs: 8px
+  sm: 12px
+  md: 16px
+  lg: 24px
+  xl: 32px
+
+components:
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+    rounded: "{rounded.pill}"
+    padding: 10px 20px
+  button-magenta-promo:
+    backgroundColor: "{colors.accent-magenta}"
+    textColor: "{colors.on-primary}"
+    rounded: "{rounded.pill}"
+---
+
+## EJEMPLO REAL 3: Stripe (Fintech Premium)
+
+---
+version: alpha
+name: Stripe-design-analysis
+description: A financial-infrastructure brand built on a deep navy ink, an electric indigo primary, and recurring atmospheric gradient meshes. The system pairs Sohne at thin (300) weights with negative letter-spacing for editorial-density display headlines, and uses tabular-figure body type where money and numerics matter. Buttons are tight-radius pills, cards live on near-white surfaces, and the dashboard flips to a familiar dark-app shell.
+
+colors:
+  primary: "#533afd"
+  primary-deep: "#4434d4"
+  primary-press: "#2e2b8c"
+  primary-soft: "#665efd"
+  ink: "#0d253d"
+  ink-secondary: "#273951"
+  ink-mute: "#64748d"
+  on-primary: "#ffffff"
+  canvas: "#ffffff"
+  canvas-soft: "#f6f9fc"
+  ruby: "#ea2261"
+
+typography:
+  display-xxl:
+    fontFamily: "sohne-var, 'SF Pro Display', sans-serif"
+    fontSize: 56px
+    fontWeight: 300
+    lineHeight: 1.03
+    letterSpacing: -1.4px
+  display-lg:
+    fontFamily: "sohne-var, 'SF Pro Display', sans-serif"
+    fontSize: 32px
+    fontWeight: 300
+    lineHeight: 1.1
+  heading-lg:
+    fontFamily: "sohne-var, 'SF Pro Display', sans-serif"
+    fontSize: 22px
+    fontWeight: 300
+  body-lg:
+    fontFamily: "sohne-var, 'SF Pro Display', sans-serif"
+    fontSize: 16px
+    fontWeight: 300
+    lineHeight: 1.4
+  caption:
+    fontFamily: "sohne-var, 'SF Pro Display', sans-serif"
+    fontSize: 13px
+    fontWeight: 400
+
+rounded:
+  xs: 4px
+  sm: 6px
+  md: 8px
+  lg: 12px
+  pill: 9999px
+
+spacing:
+  xs: 4px
+  sm: 8px
+  md: 12px
+  lg: 16px
+  xl: 24px
+
+components:
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+    rounded: "{rounded.pill}"
+  button-primary-hover:
+    backgroundColor: "{colors.primary-deep}"
+    textColor: "{colors.on-primary}"
+---
+"""
+
+
 SYSTEM_PROMPT = f"""Eres Gemini, experto en architecture de design systems profesionales.
 
 Tu misión CRÍTICA: Generar un DESIGN.md EXCEPCIONAL que implemente 
@@ -329,6 +544,22 @@ Todas las propiedades usan token references: {{colors.primary}}, {{typography.bo
 3-5 Do's positivos que refuerzan la identidad
 Deben FLUIR naturalmente de la referencia específica
 
+## EJEMPLOS REALES DE DESIGN.MD EXCELENTES
+
+Estos son 3 ejemplos reales de empresas premium. ESTUDIA su estructura YAML, 
+la variedad de colores, los niveles tipográficos, cómo definen componentes:
+
+{DESIGN_MD_REAL_EXAMPLES}
+
+**Puntos clave de estos ejemplos:**
+1. Airbnb: Paleta cálida de 10+ colores, tipografía friendly, shapes redondeadas
+2. Figma: Blanco + negro + pastel blocks vibrantes, jerarquía tipográfica clara
+3. Stripe: Navy + Indigo eléctrico, thin weights, paleta sofisticada, financial feel
+
+CUANDO GENERES, PRODUCE UN DESIGN.MD CON LA MISMA CALIDAD Y DETALLE.
+No hagas paletas de 2-3 colores. Haz paletas de 8-12 con roles semánticos claros.
+No hagas 2-3 niveles tipográficos. Haz 6-8 con intención clara en cada uno.
+
 ## Output Exacto:
 
 SOLO el archivo DESIGN.md completo:
@@ -343,35 +574,128 @@ SOLO el archivo DESIGN.md completo:
 
 async def analyze_and_design(context: DesignContext) -> DesignContext:
     """
-    PASO 1: Generar DESIGN.md EXCEPCIONAL.
+    PASO 1: Generar DESIGN.md EXCEPCIONAL (MEJORADO v3).
     
-    Integra COMPLETAMENTE:
-    - Especificación formal de DESIGN.md format
-    - Filosofía de design.md-main (Prose > Tokens, Specific > Generic)
-    - Ejemplos reales (Atmospheric Glass, Paws & Paths, Totality Festival)
-    - Material Design 3 semantics
-    - Negative constraints pattern
+    NUEVO:
+    - Utiliza template_analysis del Step 0 (patrones de composición, tipografía, colores)
+    - Inyecta patrones inteligentes extraídos de templates reales
+    - Usa Color Science para validar contraste WCAG
+    - Recomienda tipografía sistemática basada en industria
 
     Args:
-        context: DesignContext con design_brief y project_type opcional
+        context: DesignContext con design_brief, template_analysis, etc.
 
     Returns:
         DesignContext actualizado con design_markdown (DESIGN.md completo)
     """
-    logger.info("🎨 PASO 1: Generando DESIGN.md excepcional para: %s...", 
+    logger.info("🎨 PASO 1 v3: Generando DESIGN.md mejorado para: %s...", 
                 context.design_brief[:80])
 
     try:
         client = GeminiClient()
+        templates_manager = get_templates_manager()
+        
+        from services.typography_analyzer import get_typography_analyzer
+        from services.color_science import get_color_science
+        
+        typo_analyzer = get_typography_analyzer()
+        color_science = get_color_science()
 
         project_type_line = f"\n\nTipo de Proyecto: {context.project_type}" if context.project_type else ""
         
-        user_prompt = f"""Tu misión FINAL: Generar un DESIGN.md EXCEPCIONAL y HERMOSO.
+        # NUEVA FEATURE: Inyectar análisis de templates inteligente
+        template_patterns_context = ""
+        if context.template_analysis and context.template_analysis.patterns:
+            analysis = context.template_analysis
+            logger.info("✓ Usando patrones de %d templates", len(analysis.patterns))
+            
+            # Extraer y formatear patrones
+            pattern_summaries = []
+            for template_name, pattern in analysis.patterns.items():
+                pattern_summaries.append(f"""
+### {template_name}
+- **Composición:** {pattern.composition}
+- **Tipografía:** {', '.join(list(pattern.typography.values())[:2])} (+ más niveles)
+- **Colores:** {pattern.colors_strategy}
+- **Paleta Sample:** {', '.join([f'{k}={v}' for k,v in list(pattern.colors_sample.items())[:3]])}
+- **Responsive:** {pattern.responsive_strategy}
+- **Elevación:** {pattern.elevation_strategy}
+- **Border Radius:** {pattern.corner_radius_philosophy}
+""")
+            
+            template_patterns_context = f"""
+## ANÁLISIS INTELIGENTE DE TEMPLATES RELEVANTES
+
+Se han identificado y analizado {len(analysis.patterns)} templates relevantes
+para tu industria ({analysis.industry or 'general'}).
+
+**Estrategia:** {analysis.design_strategy_summary}
+
+Estos templates sirven como REFERENCIA DE COMPOSICIÓN, TIPOGRAFÍA Y COLORES:
+
+{''.join(pattern_summaries)}
+
+**INSTRUCCIÓN CRÍTICA:** Usa estos patrones como inspiración para estructura y coherencia.
+No copies directamente, pero SI adopta su filosofía de:
+- Jerarquía visual clara
+- Tipografía sistemática
+- Paleta armónica
+- Responsive design profesional
+""" 
+        
+        # NUEVA FEATURE: Recomendación tipográfica
+        typo_rec = typo_analyzer.recommend_pairing(
+            industry=context.template_analysis.industry if context.template_analysis else None
+        )
+        
+        typo_context = f"""
+## RECOMENDACIÓN TIPOGRÁFICA SISTEMÁTICA
+
+Basándose en la industria, se recomienda el pairing: **{typo_rec['pairing']}**
+({typo_rec['description']})
+
+Jerarquía sugerida:
+- **Headline:** {typo_rec['headline']['font']} {typo_rec['headline']['size']}px w{typo_rec['headline']['weight']}
+- **Display:** {typo_rec['display']['font']} {typo_rec['display']['size']}px w{typo_rec['display']['weight']}
+- **Body:** {typo_rec['body']['font']} {typo_rec['body']['size']}px w{typo_rec['body']['weight']}
+- **Caption:** {typo_rec['caption']['font']} {typo_rec['caption']['size']}px w{typo_rec['caption']['weight']}
+"""
+        
+        # Si el usuario especificó una referencia, inyectar ese DESIGN.md real
+        reference_context = ""
+        if context.design_reference:
+            template = templates_manager.get_template(context.design_reference)
+            if template:
+                logger.info("✓ Template de referencia inyectado: %s", context.design_reference)
+                reference_context = f"""
+## TEMPLATE DE REFERENCIA ESPECÍFICA
+
+El usuario ha solicitado que generes algo INSPIRADO en este DESIGN.md real:
+
+{template}
+
+---
+
+INSTRUCCIÓN CRÍTICA: Usa este template como REFERENCIA DE ESTRUCTURA Y CALIDAD.
+No copies directamente. Toma los principios de:
+- Variedad de colores (≥5 colores con roles semánticos)
+- Niveles tipográficos variados (≥6 niveles)
+- Componentes bien definidos con variantes
+- Prosa que explica INTENCIÓN, no solo valores
+"""
+        
+        user_prompt = f"""Tu misión FINAL: Generar un DESIGN.md EXCEPCIONAL, HERMOSO, y FUNDAMENTADO.
 
 BRIEF DEL USUARIO:
 ---
 {context.design_brief}{project_type_line}
 ---
+
+{template_patterns_context}
+
+{typo_context}
+
+{reference_context}
 
 INSTRUCCIONES CRÍTICAS:
 
@@ -393,11 +717,77 @@ INSTRUCCIONES CRÍTICAS:
    - FILOSOFÍA de espaciado y negativ space
    - EMOCIÓN que genera cada elección
 
-3. COLORES CON RAZÓN
-   - 5-7 colores (primary, secondary, tertiary, surface, error, etc.)
-   - Cada color: "**Name (#HEX):** Descripción específica + uso"
-   - Verifica WCAG AA (4.5:1) para texto
-   - Material Design 3 semantics si aplica (surface-container-*, on-surface, etc.)
+3. PALETA DE COLORES PREMIUM Y COHERENTE — ESTO ES CRÍTICO
+   
+   MÍNIMO 5-8 colores con roles semánticos:
+   - primary: Color hero del diseño
+   - secondary: Complemento armónico
+   - tertiary: Acentos y detalles
+   - surface/canvas: Fondos neutros
+   - error: Estados de error
+   - Additional: Según tema (success, warning, info, etc.)
+   
+   NO hagas: "usar azul porque es corporativo"
+   HAZ: Análisis profundo del tema + psicología del color
+   
+   a) ANALIZA el tema/brief:
+      - ¿Industria? (restaurante, fintech, SaaS, lifestyle, etc.)
+      - ¿Emoción deseada? (lujo, confianza, energía, serenidad, etc.)
+      - ¿Inspiraciones visuales reales? (natural, industrial, retro, moderno, etc.)
+      - ¿Audiencia? (profesionales, jóvenes, premium, accesible, etc.)
+   
+   b) ELIGE primario + secundario + acentos:
+      - Primary: El color HERO que domina (debe comunicar la esencia)
+      - Secondary: Complemento armónico (contrasta pero combina)
+      - Tertiary: Acentos y detalles (añade profundidad)
+      - Surface/Background: Lo neutro que deja que los colores brillen
+      - Error: Rojo significativo, NO genérico
+   
+   c) FILOSOFÍA DE PALETA:
+      - Monocromática + acentos: elegante, minimalista
+      - Análoga: armoniosa, natural
+      - Complementaria: energética, premium
+      - Tonal: sofisticado, moderno
+   
+   d) VERIFICA:
+      - WCAG AA contrast 4.5:1 mínimo para texto
+      - Harmonía OKLCH (no solo HEX visualmente agradable)
+      - Coherencia cultural (ej: gris en Japón ≠ gris en tech)
+      - Premium vs accesible balance
+   
+   e) EJEMPLOS DE PALETAS HERMOSAS POR TEMA:
+      
+      Restaurante Premium/Sushi:
+      - Primary: #1a1a1a (negro carbón) o #8B2E2E (rojo profundo)
+      - Secondary: #D4AF37 (oro sutil) o #F5E6D3 (marfil cálido)
+      - Tertiary: #2C3E50 (azul profundo) o #C41E3A (rojo japonés)
+      - Surface: #FAFAFA (blanco roto) o #1F1F1F (negro soft)
+      
+      SaaS Fintech/Moderno:
+      - Primary: #0066FF (azul confianza) o #00D9FF (cyan energético)
+      - Secondary: #6C5CE7 (púrpura premium) o #FF6B6B (rojo vivo)
+      - Surface: #F7F9FC (azul muy pálido) o #FFFFFF (blanco puro)
+      
+      Lifestyle/Wellness:
+      - Primary: #2D5016 (verde natural) o #D4A574 (tierra cálida)
+      - Secondary: #E8D4C4 (nude suave) o #8B6F47 (marrón noble)
+      - Tertiary: #6FA876 (verde claro) o #FFB347 (naranja cálido)
+      
+      Tech/Startup:
+      - Primary: #FF0080 (magenta) o #00B4D8 (azul vibrante)
+      - Secondary: #7C3AED (púrpura) o #EC4899 (rosa)
+      - Surface: #0F172A (navy muy oscuro) o #FFFFFF (blanco absoluto)
+   
+   f) ESCRIBE LA PROSA CON RAZÓN:
+      "**Primary (#8B2E2E):** Rojo profundo japonés, evoca tradición, lujo, frescura del sushi. 
+       Suficientemente oscuro para mantener legibilidad (WCAG AA verified)."
+       
+      "**Secondary (#D4AF37):** Oro sutil, detalles nobles sin ser ostentoso. 
+       En restaurante premium señala calidad, detalles finos, experiencia exclusiva."
+   
+   RECUERDA: La paleta define la EMOCIÓN del diseño. 
+   Colores genéricos = diseño genérico.
+   Colores pensados = identidad visual memorable.
 
 4. TIPOGRAFÍA ESTRATÉGICA
    - 1-2 familias (específicas: Inter, Plus Jakarta Sans, etc.)
@@ -455,14 +845,22 @@ INSTRUCCIONES CRÍTICAS:
 
 ENTREGA: SOLO el DESIGN.md desde --- hasta el final.
 Nada de explicación, nada de markdown code blocks (```), nada de meta-comentarios.
-Hazlo HERMOSO, PROFESIONAL y ESPECÍFICO. Este es el OUTPUT FINAL.
+
+⚠️ ADVERTENCIA FINAL SOBRE COLORES:
+Los colores son lo más importante. NO uses paletas genéricas. 
+Cada color debe tener RAZÓN DE SER específica al tema.
+Una paleta mediocre = diseño mediocre.
+Una paleta excelente = diseño memorable.
+
+Hazlo HERMOSO, PROFESIONAL, ESPECÍFICO y con COLORES EXCEPCIONALES.
+Este es el OUTPUT FINAL.
 """
 
         full_prompt = f"{SYSTEM_PROMPT}\n\n{user_prompt}"
         design_markdown = await client.generate_text(
             prompt=full_prompt,
             model="pro",
-            temperature=0.7,
+            temperature=0.85,
         )
 
         context.design_markdown = design_markdown

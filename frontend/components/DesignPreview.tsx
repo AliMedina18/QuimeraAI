@@ -55,26 +55,10 @@ const DesignPreview: FC<DesignPreviewProps> = ({ designMarkdown }) => {
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-white">
-      {/* Tabs de secciones */}
-      <div className="flex border-b border-gray-200 bg-gray-50 px-4 overflow-x-auto">
-        {['colors', 'typography', 'components', 'full'].map(section => (
-          <button
-            key={section}
-            onClick={() => toggleSection(section)}
-            className={`
-              px-3 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition
-              ${expandedSections.includes(section)
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-              }
-            `}
-          >
-            {section === 'colors' && '🎨 Colores'}
-            {section === 'typography' && '📝 Tipografía'}
-            {section === 'components' && '🧩 Componentes'}
-            {section === 'full' && '📄 Completo'}
-          </button>
-        ))}
+      {/* Header */}
+      <div className="border-b border-gray-200 bg-white px-5 py-3.5">
+        <h3 className="text-sm font-semibold text-gray-900">Especificación del diseño</h3>
+        <p className="text-xs text-gray-500 mt-1">Sistema de diseño y tokens</p>
       </div>
 
       {/* Contenido */}

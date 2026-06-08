@@ -26,9 +26,9 @@ export default function Home() {
   const hasError = state.status === 'error';
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-gray-50">
-      {/* ── Panel izquierdo (Chat) 40% en desktop, 100% en móvil ── */}
-      <aside className="w-full lg:w-[40%] lg:min-w-[320px] flex flex-col border-r border-gray-200 bg-white shadow-sm lg:shadow-none order-2 lg:order-1">
+    <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-white">
+      {/* ── Panel izquierdo (Chat) 28% en desktop, 100% en móvil ── */}
+      <aside className="w-full lg:w-[28%] lg:min-w-[340px] flex flex-col border-r border-gray-200 bg-white order-2 lg:order-1">
         {/* Header */}
         <header className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
@@ -54,50 +54,50 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* ── Panel derecho (Preview) 60% en desktop, 100% en móvil ── */}
+      {/* ── Panel derecho (Preview) 72% en desktop, 100% en móvil ── */}
       <main className="flex-1 flex flex-col overflow-hidden order-1 lg:order-2">
-        {/* Tabs */}
-        <nav className="flex border-b border-gray-200 bg-white px-4">
+        {/* Tabs — Apple style: minimal */}
+        <nav className="flex border-b border-gray-200 bg-white px-5">
           <button
             onClick={() => setActiveTab('preview')}
             disabled={!isCompleted}
             className={`
-              px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              px-3.5 py-3.5 text-sm font-medium border-b-2 transition-all
               ${activeTab === 'preview'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-blue-600 text-gray-900'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
               }
-              ${!isCompleted ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
+              ${!isCompleted ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
             `}
           >
-            🎨 Vista previa
+            Sitio web
           </button>
 
           <button
             onClick={() => setActiveTab('design')}
             disabled={!isCompleted}
             className={`
-              px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              px-3.5 py-3.5 text-sm font-medium border-b-2 transition-all
               ${activeTab === 'design'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-blue-600 text-gray-900'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
               }
-              ${!isCompleted ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
+              ${!isCompleted ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
             `}
           >
-            📐 Diseño
+            Diseño
           </button>
 
           <button
             onClick={() => setActiveTab('code')}
             disabled={!isCompleted}
             className={`
-              px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              px-3.5 py-3.5 text-sm font-medium border-b-2 transition-all
               ${activeTab === 'code'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-blue-600 text-gray-900'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
               }
-              ${!isCompleted ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
+              ${!isCompleted ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
             `}
           >
             &lt;/&gt; HTML

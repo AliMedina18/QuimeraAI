@@ -23,37 +23,36 @@ const PreviewWindow: FC<PreviewWindowProps> = ({ htmlOutput }) => {
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3">
+      {/* Header — Apple style: minimal */}
+      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 py-3.5">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-gray-700">🎨 Vista previa en vivo</h3>
-          <div className="flex items-center gap-1 text-xs text-gray-400">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          <h3 className="text-sm font-semibold text-gray-900">Sitio web generado</h3>
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <div className="w-2 h-2 bg-green-500 rounded-full" />
             En vivo
           </div>
         </div>
         <button
           onClick={handleOpenFullscreen}
-          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition flex items-center gap-1.5"
+          className="
+            px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 
+            text-xs font-medium rounded-md transition-all duration-150
+            flex items-center gap-1.5
+          "
           title="Abrir en pantalla completa"
         >
-          🪟 Pantalla completa
+          ↗ Expandir
         </button>
       </div>
 
-      {/* Iframe — el HTML va directo, sin procesamiento */}
-      <div className="flex-1 overflow-hidden bg-gray-100">
+      {/* Iframe — full responsive preview */}
+      <div className="flex-1 overflow-hidden bg-gray-50">
         <iframe
           srcDoc={htmlOutput}
           className="w-full h-full border-0"
           sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
           title="Design Preview"
         />
-      </div>
-
-      {/* Footer */}
-      <div className="border-t border-gray-200 bg-gray-50 px-4 py-2 text-xs text-gray-500">
-        ✦ Sitio web generado desde tu brief. Redimensiona para ver responsividad.
       </div>
     </div>
   );
