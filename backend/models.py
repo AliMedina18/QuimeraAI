@@ -120,12 +120,15 @@ class GeminiTestResponse(BaseModel):
 
 
 class GeneratedOutput(BaseModel):
-    """Output final del pipeline -- se guarda en Firestore y Cloud Storage."""
+    """
+    Output final del pipeline para persistencia (Firestore + Cloud Storage).
+    Usado por services/firestore_client.py y services/storage_client.py (Day 4).
+    """
     model_config = {'protected_namespaces': ()}
 
+    design_brief: str
+    design_markdown: str
     html_output: str
-    design_tokens_css: str
-    rationale_document: str
     model_used: str = Field(default="gemini-2.5-flash")
-    iterations_needed: int = Field(default=1)
     generation_time_ms: Optional[int] = Field(default=None)
+    template_used: Optional[str] = Field(default=None)

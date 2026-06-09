@@ -1,56 +1,70 @@
 """
-Test rápido: Validar que los templates se cargaron correctamente
-y que el pipeline puede inyectarlos.
+test_templates_quick.py - Tests unitarios del gestor de templates y analizador
+
+Verifica carga aleatoria, seleccion por industria, metadata y extraccion de
+patrones del TemplateAnalyzer.
+
+Marker: @pytest.mark.unit (sin llamadas a Gemini - no requiere credenciales)
 """
+import pytest
 
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-from backend.services.design_templates import get_templates_manager
+from services.design_templates import get_templates_manager
+from services.template_analyzer import get_template_analyzer
 
 
-def test_templates():
-    """Test rápido de templates."""
-    print("=" * 80)
-    print("🧪 TEST: Validar carga de templates")
-    print("=" * 80)
-    
-    manager = get_templates_manager()
-    
-    # Listar templates
-    available = manager.list_available()
-    print(f"\n✅ Templates cargados: {len(available)}")
-    print(f"   Primeros 10: {', '.join(available[:10])}\n")
-    
-    # Metadata de algunos templates
-    print("📊 Metadata de templates populares:")
-    print("-" * 80)
-    
-    for template in ["airbnb", "figma", "stripe", "spotify", "slack"]:
-        if template in available:
-            metadata = manager.get_template_metadata(template)
-            if metadata:
-                print(f"\n{template.upper()}")
-                print(f"  Name: {metadata['name']}")
-                print(f"  Colors: {metadata['colors']}+")
-                print(f"  Typography levels: {metadata['typography_levels']}+")
-                print(f"  Description: {metadata['description']}")
-    
-    print("\n" + "=" * 80)
-    print("✅ TEST PASÓ: Templates listos para usar como referencias")
-    print("=" * 80)
-    
-    return True
+class TestTemplatesManager:
+    """Tests del gestor de templates DesignTemplatesManager."""
+
+    @pytest.mark.unit
+    def test_get_random_template_retorna_tupla(self):
+        """get_random_template() retorna tupla (nombre, contenido)."""
+        manager = get_templates_manager()
+        name, content = manager.get_random_template()
+        assert isinstance(name, str) and len(name) > 0
+        assert isinstance(content, str) and len(content) > 100
+
+    @pytest.mark.unit
+    def test_get_template_by_industry_fintech(self):
+        """get_template_by_industry() retorna un template para fintech."""
+        manager = get_templates_manager()
+        result = manager.get_template_by_industry("fintech")
+        assert result is not None
+        name, content = result
+        assert isinstance(name, str)
+        assert isinstance(content, str)
+
+    @pytest.mark.unit
+    def test_get_all_metadata_retorna_dict_no_vacio(self):
+        """get_all_metadata() retorna diccionario con al menos 5 entradas."""
+        manager = get_templates_manager()
+        metadata = manager.get_all_metadata()
+        assert isinstance(metadata, dict)
+        assert len(metadata) >= 5
 
 
-if __name__ == "__main__":
-    try:
-        success = test_templates()
-        sys.exit(0 if success else 1)
-    except Exception as e:
-        print(f"❌ ERROR: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+class TestTemplateAnalyzer:
+    """Tests del analizador de templates TemplateAnalyzer."""
+
+    @pytest.mark.unit
+    def test_find_relevant_templates_fintech(self):
+        """find_relevant_templates() retorna resultados para fintech."""
+        analyzer = get_template_analyzer()
+        results = analyzer.find_relevant_templates(industry="fintech")
+        assert len(results) >= 1, "No se encontraron templates para fintech"
+
+    @pytest.mark.unit
+    def test_find_relevant_templates_saas(self):
+        """find_relevant_templates() retorna resultados para saas."""
+        analyzer = get_template_analyzer()
+        results = analyzer.find_relevant_templates(industry="saas")
+        assert len(results) >= 1, "No se encontraron templates para saas"
+
+    @pytest.mark.unit
+    def test_extract_pattern_stripe(self):
+        """extract_pattern para 'stripe' retorna un TemplatePattern valido."""
+        from models import TemplatePattern
+        analyzer = get_template_analyzer()
+        pattern = analyzer.extract_pattern("stripe")
+        if pattern is not None:
+            assert isinstance(pattern, TemplatePattern)
+            assert pattern.name == "stripe"

@@ -1,7 +1,34 @@
 # Quimera AI
 
-Agente de IA para diseño visual. Evalúa estéticamente un diseño antes de generar código React.
-Proyecto para el **Google AI Startup Agents Challenge** — deadline 11 jul 2026.
+Generador de interfaces web basado en IA. Toma un brief en lenguaje natural y produce un sistema de diseño completo (DESIGN.md) + sitio HTML autocontenido listo para usar.
+
+Proyecto para el **Google AI Agents Challenge** — deadline 11 jul 2026.
+
+Stack: **GCP · Gemini 2.5 Pro/Flash · FastAPI · Next.js**
+
+---
+
+## Arquitectura
+
+Pipeline de 4 pasos que convierte un brief en un sitio web completo:
+
+```
+Brief del usuario
+      │
+      ▼
+Paso 0: analyze_templates()     → Analiza 80+ templates de marca (Stripe, Airbnb, Figma…)
+      │
+      ▼
+Paso 1: analyze_and_design()    → Genera DESIGN.md (tokens YAML + filosofía Markdown)
+      │
+      ▼
+Paso 2: analyze_for_images()    → Planifica qué imágenes generar y dónde
+      │
+      ▼
+Paso 3: generate_code()         → Genera HTML autocontenido con CSS variables
+```
+
+`DesignContext` es el único estado compartido entre pasos (modelo Pydantic en `backend/models.py`).
 
 ---
 
@@ -10,6 +37,7 @@ Proyecto para el **Google AI Startup Agents Challenge** — deadline 11 jul 2026
 ### Requisitos
 
 - Python 3.12 ([python.org](https://www.python.org/downloads/))
+- Node.js 20+ ([nodejs.org](https://nodejs.org/))
 - Git
 
 ### 1. Clonar el repo
@@ -24,21 +52,14 @@ cd QuimeraAI
 Desde la raíz del repo, en PowerShell:
 
 ```powershell
-# Crear el entorno virtual con Python 3.12
 py -3.12 -m venv .venv
-
-# Permitir scripts en el terminal actual (solo necesario la primera vez por sesión)
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
-
-# Activar el entorno — verás (.venv) al inicio del prompt cuando esté activo
 .\.venv\Scripts\Activate.ps1
 ```
 
-> **Nota:** hay que activar el entorno cada vez que abras un terminal nuevo.
+> Hay que activar el entorno cada vez que abras un terminal nuevo.
 
-### 3. Instalar dependencias
-
-Con el entorno activo (`(.venv)` visible en el prompt):
+### 3. Instalar dependencias Python
 
 ```powershell
 pip install -r backend/requirements.txt
@@ -56,22 +77,24 @@ Edita `backend/.env` y agrega tu clave de [Google AI Studio](https://aistudio.go
 GOOGLE_API_KEY=tu_clave_aqui
 ```
 
-### 5. Correr el backend localmente
+### 5. Correr el backend
 
 ```powershell
-# Desde la raíz del repo (NO desde backend/)
-py -3.12 -m uvicorn backend.main:app --reload --port 8000
+cd backend
+uvicorn main:app --reload --port 8000
 ```
 
 Endpoints disponibles:
-- `GET http://localhost:8000/health` — health check
-- `GET http://localhost:8000/gemini-test` — verifica conexión con Gemini
-- `GET http://localhost:8000/docs` — Swagger UI
-- `POST http://localhost:8000/generar-diseno` — genera diseño (4-step pipeline)
 
----
+| Endpoint | Descripción |
+|---|---|
+| `GET /health` | Health check |
+| `GET /gemini-test` | Verifica conexión con Gemini |
+| `GET /templates` | Lista los 80+ templates disponibles |
+| `GET /docs` | Swagger UI interactivo |
+| `POST /generar-diseno` | Ejecuta el pipeline completo |
 
-## Correr el frontend localmente
+### 6. Correr el frontend
 
 ```powershell
 cd frontend
@@ -79,61 +102,56 @@ npm install        # solo la primera vez
 npm run dev        # http://localhost:3000
 ```
 
----
+Configura la URL del backend en `frontend/.env.local` (por defecto ya apunta a `http://localhost:8000`):
 
-## Correr los tests
-
-Desde la raíz del repo, con el entorno virtual activo (`(.venv)` visible):
-
-```powershell
-# Todos los tests rápidos (sin llamadas a Gemini) — RECOMENDADO ✅
-$env:PYTHONPATH="backend"; py -3.12 -m pytest tests/ -m "not slow" -v --cache-clear
-
-# Solo tests unitarios (sin credenciales, los más rápidos)
-$env:PYTHONPATH="backend"; py -3.12 -m pytest tests/ -m unit -v
-
-# Un test específico
-$env:PYTHONPATH="backend"; py -3.12 -m pytest tests/test_scorers.py::TestCalculateWcagRatio::test_negro_sobre_blanco_es_21 -v
-
-# Todos los tests (incluyendo tests lentos que llaman a Gemini)
-$env:PYTHONPATH="backend"; py -3.12 -m pytest tests/ -v --cache-clear
-
-# Tests lentos (llaman a Gemini — requiere GOOGLE_API_KEY en .env)
-$env:PYTHONPATH="backend"; py -3.12 -m pytest tests/ -m slow -v
+```
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 ```
 
-> **Nota:** Los tests con `@pytest.mark.slow` requieren `GOOGLE_API_KEY` configurada en `backend/.env`. Si la API falla, el test se convierte en SKIP automáticamente (ver `tests/conftest.py`).
+---
 
-> **Nota:** en PowerShell `PYTHONPATH=backend pytest ...` no funciona — hay que usar `$env:PYTHONPATH = "backend"; pytest ...`
+## Tests
+
+Desde la raíz del repo (con el entorno virtual activo):
+
+```powershell
+# Tests unitarios — sin credenciales, los más rápidos
+pytest tests/ -m unit -v
+
+# Todos los tests rápidos (sin llamadas a Gemini)
+pytest tests/ -m "not slow" -v
+
+# Un test específico
+pytest tests/test_scorers.py::TestWcagContrast::test_negro_sobre_blanco_es_21 -v
+
+# Tests que llaman a Gemini (requieren GOOGLE_API_KEY)
+pytest tests/ -m slow -v
+```
+
+El archivo `pytest.ini` configura `pythonpath = backend`, por lo que no hay que agregar nada a `PYTHONPATH` manualmente.
+
+> Los tests `@pytest.mark.slow` requieren `GOOGLE_API_KEY` en `backend/.env`. Si la API falla por red, el test se convierte en SKIP automáticamente.
 
 ---
 
-## Verificar sintaxis de archivos Python
+## Verificar sintaxis Python
 
 ```powershell
 cd backend
-py -3.12 -m py_compile main.py models.py pipeline/step1_analyze.py pipeline/step2_evaluate.py pipeline/step3_generate.py pipeline/scorers/color_harmony.py pipeline/scorers/wcag_contrast.py pipeline/scorers/llm_scorers.py services/gemini_client.py
+py -3.12 -m py_compile main.py models.py `
+  pipeline/step0_template_analysis.py `
+  pipeline/step1_analyze.py `
+  pipeline/step2_analyze_images.py `
+  pipeline/step3_generate.py `
+  pipeline/scorers/wcag_contrast.py `
+  services/gemini_client.py `
+  services/design_templates.py `
+  services/template_analyzer.py `
+  services/color_science.py `
+  services/typography_analyzer.py
 ```
 
-Si no hay output, todo está bien. Si hay error, muestra el archivo y la línea.
-
----
-
-## Arquitectura
-
-Pipeline de 3 pasos que **evalúa antes de generar**:
-
-```
-Brief  →  Paso 1: analyze_and_design()   →  DesignContext (colores, fuentes, layout)
-                       ↓
-          Paso 2: aesthetic_evaluate()   →  8 scores (umbral >= 85)
-                  score < 85? → crítica → volver a Paso 1 (max 3 iteraciones)
-                  score >= 85? → approved = True
-                       ↓
-          Paso 3: generate_code()        →  Componente React + CSS tokens
-```
-
-Ver `CLAUDE.md` para documentación técnica detallada.
+Sin output = todo bien. Con error = muestra el archivo y la línea.
 
 ---
 
@@ -143,4 +161,60 @@ Ver `CLAUDE.md` para documentación técnica detallada.
 bash setup_gcp.sh
 ```
 
-Ver comentarios en `setup_gcp.sh` para los 10 pasos de configuración en GCP.
+El Dockerfile en `backend/Dockerfile` usa `python:3.12-slim` y arranca uvicorn directamente con `uvicorn main:app`. La imagen final es ~300MB.
+
+Cloud Run inyecta `GOOGLE_API_KEY` desde Secret Manager y `PORT=8080` automáticamente.
+
+---
+
+## Estructura del proyecto
+
+```
+QuimeraAI/
+├── backend/
+│   ├── main.py                          # FastAPI app + endpoints
+│   ├── models.py                        # DesignContext y modelos Pydantic
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   ├── pipeline/
+│   │   ├── step0_template_analysis.py   # Paso 0: analiza templates
+│   │   ├── step1_analyze.py             # Paso 1: genera DESIGN.md
+│   │   ├── step2_analyze_images.py      # Paso 2: planifica imágenes
+│   │   ├── step3_generate.py            # Paso 3: genera HTML
+│   │   ├── scorers/
+│   │   │   └── wcag_contrast.py         # Validación WCAG 2.1 (funciones puras)
+│   │   └── archive/                     # Pipeline v1 archivado (no activo)
+│   ├── services/
+│   │   ├── gemini_client.py             # Wrapper google-genai SDK
+│   │   ├── design_templates.py          # Carga 80+ templates DESIGN.md
+│   │   ├── template_analyzer.py         # Extrae patrones de templates
+│   │   ├── typography_analyzer.py       # Pairings tipográficos por industria
+│   │   ├── color_science.py             # WCAG, paletas tonales, hex/rgb
+│   │   ├── firestore_client.py          # Stub — Day 4
+│   │   ├── storage_client.py            # Stub — Day 4
+│   │   └── image_generator.py           # Stub — Day 4 (Imagen 3)
+│   └── design_templates/                # 80+ archivos DESIGN.md de referencia
+├── frontend/
+│   ├── app/                             # Next.js App Router
+│   ├── components/
+│   │   ├── ChatUI.tsx                   # Input del brief
+│   │   ├── DesignPreview.tsx            # Muestra DESIGN.md
+│   │   ├── PreviewWindow.tsx            # Iframe con el HTML generado
+│   │   └── ReactPreview.tsx             # Vista de código HTML
+│   ├── hooks/
+│   │   └── usePipeline.ts               # Hook para llamar al backend
+│   └── types/
+│       └── pipeline.ts                  # Tipos TypeScript del pipeline
+├── tests/
+│   ├── conftest.py                      # Setup pytest (sys.path, .env, hooks)
+│   ├── test_scorers.py                  # Tests unitarios: DESIGN.md + HTML + WCAG
+│   ├── test_pipeline.py                 # Tests de integración del pipeline
+│   └── ...                             # Tests adicionales
+├── pytest.ini                           # pythonpath = backend
+├── CLAUDE.md                            # Documentación técnica para Claude
+└── setup_gcp.sh                         # Setup de GCP (Cloud Run, Secret Manager)
+```
+
+---
+
+Ver `CLAUDE.md` para documentación técnica detallada (Gemini SDK, scorers WCAG, markers de test, deployment).

@@ -1,105 +1,132 @@
 /**
- * DesignPreview.tsx - Muestra el DESIGN.md generado
- * 
- * Parsea el YAML frontmatter y muestra:
- * - Paleta de colores
- * - Tipografía
- * - Componentes
- * - Resto del Markdown
+ * DesignPreview.tsx — Muestra el DESIGN.md generado
+ *
+ * Parsea el YAML frontmatter para extraer la paleta de colores,
+ * y renderiza el cuerpo Markdown con react-markdown.
  */
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { FC } from 'react';
+import Markdown from 'react-markdown';
 
 interface DesignPreviewProps {
   designMarkdown: string;
 }
 
-interface DesignYAML {
-  version?: string;
+interface ParsedFrontmatter {
+  colors: Record<string, string>;
   name?: string;
   description?: string;
-  colors?: Record<string, string>;
-  typography?: Record<string, any>;
-  rounded?: Record<string, string>;
-  spacing?: Record<string, string>;
-  components?: Record<string, any>;
+}
+
+/**
+ * Extrae colores HEX del bloque YAML del frontmatter.
+ * Busca líneas de la forma:   clave: "#RRGGBB"
+ */
+function parseFrontmatterColors(yamlBlock: string): Record<string, string> {
+  const colors: Record<string, string> = {};
+  const colorRegex = /^\s{2,4}(\w[\w-]*):\s*['"]?(#[0-9a-fA-F]{6})['"]?/gm;
+  let match;
+  while ((match = colorRegex.exec(yamlBlock)) !== null) {
+    colors[match[1]] = match[2];
+  }
+  return colors;
+}
+
+function parseFrontmatter(raw: string): ParsedFrontmatter {
+  const nameMatch = raw.match(/^name:\s*(.+)$/m);
+  const descMatch = raw.match(/^description:\s*['"]?(.+?)['"]?\s*$/m);
+
+  // Extraer solo la subsección colors:
+  const colorsSection = raw.match(/^colors:\s*\n((?:\s{2,4}\S.*\n?)*)/m);
+  const colors = colorsSection ? parseFrontmatterColors(colorsSection[1]) : {};
+
+  return {
+    colors,
+    name: nameMatch?.[1]?.trim(),
+    description: descMatch?.[1]?.trim(),
+  };
+}
+
+/** Contraste perceptual simple para decidir texto claro u oscuro sobre el color. */
+function usesDarkText(hex: string): boolean {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 128;
 }
 
 const DesignPreview: FC<DesignPreviewProps> = ({ designMarkdown }) => {
-  const [expandedSections, setExpandedSections] = useState<string[]>(['colors']);
-
-  const { yaml, markdown } = useMemo(() => {
-    const match = designMarkdown.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-    if (!match) return { yaml: {}, markdown: designMarkdown };
-
-    try {
-      // Parse YAML manually (simple version)
-      const yamlStr = match[1];
-      const yaml = JSON.parse(JSON.stringify({})); // Placeholder
-      return { yaml, markdown: match[2] };
-    } catch {
-      return { yaml: {}, markdown: designMarkdown };
-    }
+  const { frontmatter, body } = useMemo(() => {
+    const match = designMarkdown.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+    if (!match) return { frontmatter: { colors: {} }, body: designMarkdown };
+    return {
+      frontmatter: parseFrontmatter(match[1]),
+      body: match[2],
+    };
   }, [designMarkdown]);
 
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev =>
-      prev.includes(section)
-        ? prev.filter(s => s !== section)
-        : [...prev, section]
-    );
-  };
+  const colorEntries = Object.entries(frontmatter.colors);
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-white">
       {/* Header */}
       <div className="border-b border-gray-200 bg-white px-5 py-3.5">
-        <h3 className="text-sm font-semibold text-gray-900">Especificación del diseño</h3>
-        <p className="text-xs text-gray-500 mt-1">Sistema de diseño y tokens</p>
+        <h3 className="text-sm font-semibold text-gray-900">
+          {frontmatter.name ?? 'Especificación del diseño'}
+        </h3>
+        {frontmatter.description && (
+          <p className="text-xs text-gray-500 mt-0.5 truncate">
+            {frontmatter.description}
+          </p>
+        )}
       </div>
 
-      {/* Contenido */}
-      <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
-        {/* Preview de Markdown */}
-        <div className="prose prose-sm max-w-none dark:prose-invert">
-          {markdown.split('\n').map((line, i) => {
-            if (!line) return <div key={i} className="h-2" />;
-            if (line.startsWith('## ')) {
-              return (
-                <h2 key={i} className="text-lg font-bold text-gray-900 mt-4 mb-2">
-                  {line.replace('## ', '')}
-                </h2>
-              );
-            }
-            if (line.startsWith('### ')) {
-              return (
-                <h3 key={i} className="text-base font-semibold text-gray-700 mt-2 mb-1">
-                  {line.replace('### ', '')}
-                </h3>
-              );
-            }
-            if (line.startsWith('- ') || line.startsWith('* ')) {
-              return (
-                <li key={i} className="text-gray-700 ml-4">
-                  {line.substring(2)}
-                </li>
-              );
-            }
-            return (
-              <p key={i} className="text-gray-700 text-sm leading-relaxed">
-                {line}
-              </p>
-            );
-          })}
-        </div>
+      <div className="flex-1 overflow-y-auto p-5 space-y-6">
+        {/* Paleta de colores */}
+        {colorEntries.length > 0 && (
+          <section>
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Paleta de colores
+            </h4>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {colorEntries.map(([name, hex]) => (
+                <div key={name} className="flex flex-col gap-1">
+                  <div
+                    className="h-10 rounded-md shadow-sm border border-black/5 flex items-center justify-center"
+                    style={{ backgroundColor: hex }}
+                  >
+                    <span
+                      className="text-xs font-mono font-medium"
+                      style={{ color: usesDarkText(hex) ? '#1a1a1a' : '#ffffff' }}
+                    >
+                      {hex}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500 truncate">{name}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
-        {/* Nota de que es DESIGN.md */}
-        <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
-          ℹ️ Este es el sistema de diseño (DESIGN.md) generado por el paso 1 del pipeline.
-          Contiene tokens de diseño (colores, tipografía, espaciado) y guías de implementación.
+        {/* Cuerpo Markdown */}
+        <section>
+          <div className="prose prose-sm max-w-none
+            prose-headings:text-gray-900 prose-headings:font-semibold
+            prose-p:text-gray-700 prose-p:leading-relaxed
+            prose-li:text-gray-700 prose-code:text-blue-700
+            prose-code:bg-blue-50 prose-code:px-1 prose-code:rounded">
+            <Markdown>{body}</Markdown>
+          </div>
+        </section>
+
+        {/* Nota informativa */}
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+          Sistema de diseño generado por el Paso 1 del pipeline. Contiene tokens de
+          diseño (colores, tipografía, espaciado) y guías de implementación.
         </div>
       </div>
     </div>

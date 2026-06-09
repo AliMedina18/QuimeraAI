@@ -9,9 +9,8 @@ Autenticacion: Application Default Credentials (ADC).
 
 Bucket: quimera-ai-prod-outputs
 Estructura:
-  projects/{projectId}/componente.tsx   -- componente React TypeScript
-  projects/{projectId}/tokens.css       -- variables CSS
-  projects/{projectId}/rationale.md     -- documento de rationale
+  projects/{projectId}/index.html       -- sitio HTML generado (Step 3)
+  projects/{projectId}/design.md        -- DESIGN.md generado (Step 1)
 
 PREREQUISITO (una vez por proyecto GCP):
   gsutil mb -p quimera-ai-prod -l us-central1 gs://quimera-ai-prod-outputs

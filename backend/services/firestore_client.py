@@ -9,15 +9,12 @@ Autenticacion: Application Default Credentials (ADC).
 
 Estructura en Firestore:
   /projects/{projectId}/
-    design_brief:     str
-    overall_score:    float
-    approved:         bool
-    iterations:       int
-    component_url:    str  (gs:// Cloud Storage)
-    tokens_url:       str
-    rationale_url:    str
-    aesthetic_scores: dict
-    created_at:       timestamp
+    design_brief:    str
+    design_markdown: str   (DESIGN.md generado por Step 1)
+    html_output:     str   (HTML generado por Step 3)
+    template_used:   str   (template de referencia, ej: "stripe")
+    model_used:      str   (ej: "gemini-2.5-flash")
+    created_at:      timestamp
 
 PREREQUISITO (una vez por proyecto GCP):
   gcloud firestore databases create --region=us-central1 --project=quimera-ai-prod

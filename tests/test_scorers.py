@@ -14,13 +14,8 @@ aún existen en el repo pero no son parte del pipeline activo.
 """
 
 import pytest
-import sys
-import os
 import re
 import yaml
-
-# Añadir el directorio backend al path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 
 # ---------------------------------------------------------------------------
@@ -367,26 +362,57 @@ class TestHtmlOutputValidation:
 
 
 # ---------------------------------------------------------------------------
-# TESTS DE PRESERVACIÓN DE LEGADO (wcag_contrast aún existe)
+# TESTS DE WCAG CONTRAST (funciones puras disponibles en pipeline activo)
 # ---------------------------------------------------------------------------
 
-class TestWcagContrastLegacy:
-    """Tests del scorer wcag_contrast (usado en pipeline antiguo, aún existe)."""
+class TestWcagContrast:
+    """Tests de las funciones puras de wcag_contrast.py."""
 
     @pytest.mark.unit
     def test_calculate_relative_luminance_negro(self):
         """El negro absoluto tiene luminancia 0."""
-        try:
-            from pipeline.scorers.wcag_contrast import calculate_relative_luminance
-            assert calculate_relative_luminance("#000000") == pytest.approx(0.0, abs=1e-6)
-        except (ImportError, ModuleNotFoundError, NameError):
-            pytest.skip("wcag_contrast.py no disponible (OK para nuevo pipeline)")
+        from pipeline.scorers.wcag_contrast import calculate_relative_luminance
+        assert calculate_relative_luminance("#000000") == pytest.approx(0.0, abs=1e-6)
 
     @pytest.mark.unit
     def test_calculate_relative_luminance_blanco(self):
         """El blanco absoluto tiene luminancia 1."""
-        try:
-            from pipeline.scorers.wcag_contrast import calculate_relative_luminance
-            assert calculate_relative_luminance("#FFFFFF") == pytest.approx(1.0, abs=1e-4)
-        except (ImportError, ModuleNotFoundError, NameError):
-            pytest.skip("wcag_contrast.py no disponible (OK para nuevo pipeline)")
+        from pipeline.scorers.wcag_contrast import calculate_relative_luminance
+        assert calculate_relative_luminance("#FFFFFF") == pytest.approx(1.0, abs=1e-4)
+
+    @pytest.mark.unit
+    def test_negro_sobre_blanco_es_21(self):
+        """Negro sobre blanco siempre da contraste 21:1 (máximo)."""
+        from pipeline.scorers.wcag_contrast import calculate_wcag_ratio
+        ratio = calculate_wcag_ratio("#000000", "#FFFFFF")
+        assert ratio == pytest.approx(21.0, abs=0.01)
+
+    @pytest.mark.unit
+    def test_classify_aaa(self):
+        """Ratio >= 7 es AAA."""
+        from pipeline.scorers.wcag_contrast import classify_wcag_level
+        assert classify_wcag_level(21.0) == "AAA"
+        assert classify_wcag_level(7.0) == "AAA"
+
+    @pytest.mark.unit
+    def test_classify_aa(self):
+        """Ratio 4.5–6.99 es AA."""
+        from pipeline.scorers.wcag_contrast import classify_wcag_level
+        assert classify_wcag_level(4.5) == "AA"
+        assert classify_wcag_level(5.0) == "AA"
+
+    @pytest.mark.unit
+    def test_classify_fail(self):
+        """Ratio < 4.5 falla WCAG AA."""
+        from pipeline.scorers.wcag_contrast import classify_wcag_level
+        assert classify_wcag_level(2.0) == "FAIL"
+        assert classify_wcag_level(4.49) == "FAIL"
+
+    @pytest.mark.unit
+    def test_validate_pair_negro_sobre_blanco(self):
+        """validate_pair devuelve resultado estructurado correcto."""
+        from pipeline.scorers.wcag_contrast import validate_pair
+        result = validate_pair("#000000", "#FFFFFF", "negro/blanco")
+        assert result["passes_aa"] is True
+        assert result["passes_aaa"] is True
+        assert result["ratio"] == pytest.approx(21.0, abs=0.01)

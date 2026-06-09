@@ -5,9 +5,9 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Quimera AI — Motor de Diseño Visual',
+  title: 'Quimera AI — Generador de Interfaces',
   description:
-    'Agente de IA que evalúa y genera interfaces React con criterios estéticos profesionales.',
+    'Agente de IA que genera sistemas de diseño y sitios web HTML a partir de un brief en lenguaje natural. Powered by Gemini 2.5.',
 };
 
 export default function RootLayout({

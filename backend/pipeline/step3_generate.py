@@ -1,8 +1,8 @@
 import logging
 import re
 import yaml
-from backend.models import DesignContext
-from backend.services.gemini_client import GeminiClient
+from models import DesignContext
+from services.gemini_client import GeminiClient
 
 logger = logging.getLogger(__name__)
 

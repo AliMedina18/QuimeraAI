@@ -2,26 +2,28 @@
 conftest.py — Configuración global de pytest para Quimera
 =========================================================
 
-Contiene:
-- Hook para convertir errores de red transitorios en SKIP
-  en tests @pytest.mark.slow (que llaman a Gemini API).
+Configura sys.path para que funcionen dos estilos de import:
+  - from models import DesignContext          (via pytest.ini: pythonpath = backend)
+  - from backend.models import DesignContext  (compatibilidad legacy en tests slow)
 
-Errores de red que se convierten en SKIP:
-  - httpx.RemoteProtocolError  (servidor desconectó sin responder)
-  - httpx.ConnectError         (no se pudo conectar)
-  - httpx.TimeoutException     (timeout)
-  - httpx.ReadTimeout          (timeout de lectura)
+Ambos estilos coexisten: los módulos fuente usan el primero, algunos tests legacy el segundo.
 
-Esto evita que un corte momentáneo de red o una caída transitoria
-de la API de Gemini marque el test como FAILED en lugar de SKIPPED.
+También contiene el hook para convertir errores de red transitorios en SKIP
+en tests @pytest.mark.slow (que llaman a Gemini API).
 """
 
+import sys
 import pytest
-from dotenv import load_dotenv
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Agregar la raíz del repo a sys.path (compatibilidad con imports 'from backend.xxx')
+_repo_root = Path(__file__).parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
 
 # Cargar variables de entorno desde backend/.env ANTES de cualquier import de módulos
-_backend_env = Path(__file__).parent.parent / "backend" / ".env"
+_backend_env = _repo_root / "backend" / ".env"
 if _backend_env.exists():
     load_dotenv(_backend_env)
 

@@ -1,13 +1,10 @@
 """
-wcag_contrast.py — Criterio 2: Contraste WCAG 2.1
-==================================================
-Scorer algorítmico y determinístico.
-Implementa el estándar W3C WCAG 2.1 para accesibilidad de contraste.
+wcag_contrast.py — Cálculo WCAG 2.1 de contraste de color
+===========================================================
+Funciones puras y determinísticas.
+Sin dependencias externas. Python puro.
 
-La fórmula WCAG es matemáticamente exacta. Negros sobre blanco siempre = 21:1.
-No hay ambigüedad ni aleatoriedad.
-
-Fórmula:
+Fórmula WCAG:
     ratio = (L_claro + 0.05) / (L_oscuro + 0.05)
 
 Donde L es la luminancia relativa:
@@ -21,7 +18,11 @@ Niveles WCAG:
     AA  (mínimo): 4.5:1 para texto normal, 3:1 para texto grande (≥18pt o 14pt bold)
     AAA (óptimo): 7:1 para texto normal
 
-Sin dependencias externas. Python puro.
+Uso:
+    from backend.pipeline.scorers.wcag_contrast import calculate_wcag_ratio, classify_wcag_level
+
+    ratio = calculate_wcag_ratio('#000000', '#FFFFFF')  # 21.0
+    level = classify_wcag_level(ratio)                   # 'AAA'
 """
 
 import logging
@@ -33,9 +34,6 @@ def linearize_channel(channel: float) -> float:
     """
     Aplica gamma expansion a un canal RGB normalizado (0-1).
     Convierte de espacio gamma (sRGB) a espacio lineal.
-
-    Los monitores aplican una corrección gamma al mostrar colores.
-    Para calcular la luminancia física real debemos deshacerla.
 
     Args:
         channel: Valor del canal en [0, 1].
@@ -62,7 +60,7 @@ def calculate_relative_luminance(hex_color: str) -> float:
     Ejemplos:
         '#000000' → 0.0       (negro)
         '#FFFFFF' → 1.0       (blanco)
-        '#FF0000' → 0.2126    (rojo puro — contribución del canal R)
+        '#FF0000' → 0.2126    (rojo puro)
         '#767676' → 0.2158    (gris que bordea el 4.5:1 sobre blanco)
     """
     hex_clean = hex_color.lstrip("#")
@@ -78,7 +76,6 @@ def calculate_relative_luminance(hex_color: str) -> float:
     b_lin = linearize_channel(b)
 
     # Pesos perceptuales estándar ITU-R BT.709
-    # El ojo humano es más sensible al verde (0.7152) que al rojo (0.2126) o azul (0.0722)
     return 0.2126 * r_lin + 0.7152 * g_lin + 0.0722 * b_lin
 
 
@@ -96,7 +93,7 @@ def calculate_wcag_ratio(foreground: str, background: str) -> float:
         21:1 = máximo contraste (negro sobre blanco).
 
     Invariante: foreground y background son intercambiables.
-    calculate_wcag_ratio('#000000', '#FFFFFF') == calculate_wcag_ratio('#FFFFFF', '#000000') == 21.0
+        calculate_wcag_ratio('#000000', '#FFFFFF') == calculate_wcag_ratio('#FFFFFF', '#000000') == 21.0
     """
     l1 = calculate_relative_luminance(foreground)
     l2 = calculate_relative_luminance(background)
@@ -127,79 +124,41 @@ def classify_wcag_level(ratio: float, is_large_text: bool = False) -> str:
     return "FAIL"
 
 
-def score_wcag_contrast(context) -> float:
+def validate_pair(text_color: str, bg_color: str, label: str = "") -> dict:
     """
-    Criterio 2: Evalúa el contraste de todos los pares texto/fondo del diseño.
-
-    Pares evaluados:
-        1. primary_color (texto) sobre neutrales[0] (fondo más claro)
-        2. primary_color (texto) sobre neutrales[-1] (fondo más oscuro)
-        3. neutrales[-1] (texto oscuro) sobre neutrales[0] (fondo claro) — el par más común
-        4. accent_color sobre neutrales[0]
-
-    Penalizaciones:
-        -15 puntos por par que no alcance 4.5:1 (WCAG AA)
-        -8  puntos por par entre 3:1 y 4.5:1 (solo pasa texto grande)
-        -5  puntos si ningún par alcanza 7:1 (WCAG AAA)
+    Valida un par texto/fondo completo y retorna resultado estructurado.
 
     Args:
-        context: DesignContext con primary_color, accent_color, neutral_palette.
+        text_color: Color del texto en hex.
+        bg_color: Color del fondo en hex.
+        label: Etiqueta descriptiva del par (para logging).
 
     Returns:
-        Score de 0 a 100.
-
-    Ejemplos esperados (para tests del Día 3):
-        '#000000' sobre '#FFFFFF' → ~100 (ratio 21:1, perfecta accesibilidad)
-        '#767676' sobre '#FFFFFF' → ~70  (ratio ~4.48:1, bordea el mínimo)
-        '#AAAAAA' sobre '#FFFFFF' → ~30  (ratio ~2.3:1, falla WCAG AA)
-
-    TODO Día 3: refinar el cálculo de pares y las penalizaciones.
+        Dict con: ratio, level, passes_aa, passes_aaa
     """
-    if not context.primary_color or not context.neutral_palette:
-        logger.warning("score_wcag_contrast: faltan colores en el contexto")
-        return 50.0  # Score neutral si no hay datos suficientes
-
-    score = 100.0
-    evaluated_pairs = []
-
-    # Definir los pares a evaluar
-    bg_light = context.neutral_palette[0] if context.neutral_palette else "#FFFFFF"
-    bg_dark = context.neutral_palette[-1] if len(context.neutral_palette) > 1 else "#000000"
-
-    pairs = [
-        (context.primary_color, bg_light, "primary sobre fondo claro"),
-        (bg_dark, bg_light, "texto oscuro sobre fondo claro"),
-    ]
-
-    if context.secondary_color:
-        pairs.append((context.secondary_color, bg_light, "secondary sobre fondo claro"))
-
-    if context.accent_color:
-        pairs.append((context.accent_color, bg_light, "accent sobre fondo claro"))
-
-    for fg, bg, label in pairs:
-        try:
-            ratio = calculate_wcag_ratio(fg, bg)
-            level = classify_wcag_level(ratio)
-            evaluated_pairs.append((label, ratio, level))
-
-            if level == "FAIL":
-                score -= 15.0
-                logger.debug("Par '%s': ratio %.1f:1 — FALLA WCAG AA", label, ratio)
-            elif level == "AA_large":
-                score -= 8.0
-                logger.debug("Par '%s': ratio %.1f:1 — solo pasa texto grande", label, ratio)
-            else:
-                logger.debug("Par '%s': ratio %.1f:1 — %s", label, ratio, level)
-
-        except ValueError as e:
-            logger.warning("Error evaluando par '%s': %s", label, e)
-            score -= 10.0  # Penalizar color inválido
-
-    # Bonus si todos los pares tienen ratio muy alto (AAA)
-    if all(level in ("AA", "AAA") for _, _, level in evaluated_pairs):
-        aaa_count = sum(1 for _, _, level in evaluated_pairs if level == "AAA")
-        if aaa_count == len(evaluated_pairs):
-            score = min(100.0, score + 5.0)  # Bonus por excelencia en accesibilidad
-
-    return max(0.0, min(100.0, score))
+    try:
+        ratio = calculate_wcag_ratio(text_color, bg_color)
+        level = classify_wcag_level(ratio)
+        result = {
+            "ratio": round(ratio, 2),
+            "level": level,
+            "passes_aa": level in ("AA", "AAA"),
+            "passes_aaa": level == "AAA",
+            "text_color": text_color,
+            "bg_color": bg_color,
+        }
+        if label:
+            logger.debug("WCAG %s: %s sobre %s → %.1f:1 (%s)",
+                         label, text_color, bg_color, ratio, level)
+        return result
+    except ValueError as e:
+        logger.warning("Color inválido en par '%s': %s", label, e)
+        return {
+            "ratio": 0.0,
+            "level": "FAIL",
+            "passes_aa": False,
+            "passes_aaa": False,
+            "text_color": text_color,
+            "bg_color": bg_color,
+            "error": str(e),
+        }
