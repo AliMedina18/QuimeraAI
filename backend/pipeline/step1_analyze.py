@@ -17,6 +17,7 @@ import logging
 from models import DesignContext
 from services.gemini_client import GeminiClient
 from services.design_templates import get_templates_manager
+from services.template_analyzer import get_template_analyzer
 
 logger = logging.getLogger(__name__)
 
@@ -596,13 +597,41 @@ async def analyze_and_design(context: DesignContext) -> DesignContext:
         templates_manager = get_templates_manager()
         
         from services.typography_analyzer import get_typography_analyzer
-        from services.color_science import get_color_science
+        from services.color_science import get_color_science  # noqa: F401
         
         typo_analyzer = get_typography_analyzer()
-        color_science = get_color_science()
 
         project_type_line = f"\n\nTipo de Proyecto: {context.project_type}" if context.project_type else ""
         
+        # Obtener DESIGN.md completo del template primario detectado
+        primary_design_md_context = ""
+        if context.template_analysis and context.template_analysis.primary_template and not context.design_reference:
+            analyzer = get_template_analyzer()
+            industry_for_md = context.template_analysis.industry or "generic_business"
+            primary_name, primary_md = analyzer.get_primary_design_md(industry_for_md)
+            if primary_md:
+                logger.info("✓ Inyectando DESIGN.md completo de template: %s", primary_name)
+                primary_design_md_context = f"""
+## DESIGN.MD DE REFERENCIA PRINCIPAL: {primary_name.upper()}
+
+Este es el DESIGN.md REAL y COMPLETO de una marca reconocida cuya estética
+es la más cercana a lo que el usuario necesita. ESTUDIA cómo:
+- Organiza los tokens YAML (colores, tipografía, spacing, rounded, components)
+- Redacta la prosa (específica, evocadora, con intención)
+- Estructura los componentes con variantes y token references
+- Define Do's & Don'ts específicos
+
+=== INICIO DESIGN.MD REFERENCIA ({primary_name}) ===
+
+{primary_md}
+
+=== FIN DESIGN.MD REFERENCIA ===
+
+INSTRUCCIÓN: Usa este DESIGN.md como inspiración de CALIDAD y ESTRUCTURA.
+No copies identidad de marca. Sí adopta el RIGOR tipográfico, paleta semántica,
+variedad de componentes y precisión de prosa.
+"""
+
         # NUEVA FEATURE: Inyectar análisis de templates inteligente
         template_patterns_context = ""
         if context.template_analysis and context.template_analysis.patterns:
@@ -690,6 +719,8 @@ BRIEF DEL USUARIO:
 ---
 {context.design_brief}{project_type_line}
 ---
+
+{primary_design_md_context}
 
 {template_patterns_context}
 

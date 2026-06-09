@@ -6,9 +6,7 @@ de templates reales para mejorar la generación de nuevos diseños.
 """
 
 import logging
-import random
-from typing import List, Dict, Optional, Tuple
-from pathlib import Path
+from typing import List, Dict, Optional
 import re
 
 from models import TemplatePattern, TemplateAnalysisContext
@@ -47,18 +45,66 @@ class TemplateAnalyzer:
             if design_reference.lower() in self.templates_manager.list_available():
                 recommended.append(design_reference.lower())
         
-        # Mapeo de industrias a templates sugeridos
+        # Mapeo completo industria → templates por similitud estética
+        # Criterio: ¿qué marca tiene el look-and-feel más cercano a esa industria?
         industry_map = {
-            "fintech": ["stripe", "revolut", "kraken", "coinbase"],
-            "saas": ["figma", "linear", "posthog", "slack", "notion"],
-            "marketplace": ["airbnb", "uber"],
-            "design": ["figma", "adobe"],
-            "commerce": ["shopify", "stripe"],
-            "productivity": ["notion", "linear", "slack"],
-            "developer": ["github", "stripe", "vercel"],
-            "media": ["youtube", "spotify", "theverge"],
-            "social": ["facebook", "twitter"],
-            "wellness": ["apple", "elevenlabs"],
+            # Salud / Bienestar
+            "healthcare":   ["apple", "notion", "stripe"],
+            "dental":       ["apple", "notion"],
+            "therapy":      ["notion", "apple"],
+            "wellness":     ["apple", "starbucks", "notion"],
+            "fitness":      ["nike", "spotify", "apple"],
+
+            # Servicios Profesionales
+            "legal":        ["stripe", "ibm", "notion"],
+            "consulting":   ["stripe", "ibm", "linear.app"],
+            "nonprofit":    ["notion", "airbnb"],
+
+            # Educación
+            "education":    ["notion", "linear.app", "figma"],
+
+            # Comida & Hospitalidad
+            "restaurant":   ["airbnb", "starbucks"],
+            "cafe":         ["starbucks", "airbnb"],
+            "hotel":        ["airbnb", "apple"],
+
+            # Retail & Moda
+            "fashion":      ["nike", "figma", "apple"],
+            "beauty":       ["apple", "figma"],
+
+            # Construcción & Inmobiliaria
+            "realestate":   ["airbnb", "apple"],
+            "architecture": ["apple", "figma"],
+
+            # Tecnología
+            "saas":         ["figma", "linear.app", "posthog"],
+            "fintech":      ["stripe", "revolut", "wise"],
+            "photography":  ["figma", "apple"],
+
+            # Lifestyle & Ocio
+            "travel":       ["airbnb", "uber"],
+            "pets":         ["airbnb", "notion"],
+            "events":       ["airbnb", "spotify"],
+
+            # Industrial
+            "industrial":   ["ibm", "stripe"],
+            "agriculture":  ["notion", "airbnb"],
+
+            # Automotriz / Lujo
+            "automotive":   ["bmw", "tesla", "ferrari"],
+
+            # Media
+            "media":        ["spotify", "theverge", "wired"],
+
+            # Legacy / otros
+            "marketplace":  ["airbnb", "shopify"],
+            "commerce":     ["shopify", "stripe"],
+            "productivity": ["notion", "linear.app"],
+            "developer":    ["vercel", "stripe", "supabase"],
+            "social":       ["spotify", "notion"],
+
+            # Fallback genérico
+            "generic_business": ["stripe", "notion", "apple"],
         }
         
         # Agregar templates sugeridos por industria
@@ -235,47 +281,71 @@ class TemplateAnalyzer:
                 return f"{default_radius} border radius, balanced style"
         
         return "Moderate border radius"
-    
+
+    def get_primary_design_md(self, industry: str) -> tuple[str, str]:
+        """
+        Retorna el DESIGN.md completo del template primario para una industria.
+
+        Returns:
+            (template_name, full_design_md_content)  — ("", "") si no se encuentra
+        """
+        templates = self.find_relevant_templates(industry=industry)
+        if not templates:
+            return ("", "")
+
+        primary = templates[0]
+        content = self.templates_manager.get_template(primary)
+        if not content:
+            # Intentar con el segundo
+            for alt in templates[1:]:
+                content = self.templates_manager.get_template(alt)
+                if content:
+                    return (alt, content)
+            return ("", "")
+
+        return (primary, content)
+
     async def analyze_all_relevant(
         self,
-        industry: Optional[str] = None,
-        project_type: Optional[str] = None,
-        design_reference: Optional[str] = None
-    ) -> TemplateAnalysisContext:
+        industry=None,
+        project_type=None,
+        design_reference=None,
+    ):
         """
         Análisis completo: encuentra templates relevantes y extrae sus patrones.
-        
+
         Returns:
             TemplateAnalysisContext con análisis completo
         """
         relevant = self.find_relevant_templates(industry, project_type, design_reference)
-        
+
         patterns = {}
         for template_name in relevant:
             pattern = self.extract_pattern(template_name)
             if pattern:
                 patterns[template_name] = pattern
-        
+
         # Resumen de estrategia
         primary = relevant[0] if relevant else None
         summary = f"Using {len(patterns)} reference templates"
         if primary and primary in patterns:
             p = patterns[primary]
             summary = f"Primary reference: {primary}. Composition: {p.composition}. Colors: {p.colors_strategy}"
-        
+
         return TemplateAnalysisContext(
             relevant_templates=relevant,
             primary_template=primary,
             industry=industry,
             patterns=patterns,
-            design_strategy_summary=summary
+            design_strategy_summary=summary,
         )
 
 
 # Singleton
-_analyzer_instance: Optional[TemplateAnalyzer] = None
+_analyzer_instance = None
 
-def get_template_analyzer() -> TemplateAnalyzer:
+
+def get_template_analyzer():
     """Obtiene instancia singleton del analizador."""
     global _analyzer_instance
     if _analyzer_instance is None:

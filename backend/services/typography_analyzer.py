@@ -5,7 +5,7 @@ Recomienda pairings, jerarquías y escalas responsive de tipografía.
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -95,9 +95,9 @@ class TypographyAnalyzer:
     }
     
     def __init__(self):
-        self._cache: Dict[str, any] = {}
+        self._cache: Dict[str, Any] = {}
     
-    def recommend_pairing(self, industry: Optional[str] = None) -> Dict[str, any]:
+    def recommend_pairing(self, industry: Optional[str] = None) -> Dict[str, Any]:
         """
         Recomienda un pairing de tipografía basado en industria.
         
@@ -187,7 +187,7 @@ class TypographyAnalyzer:
         """
         return self.RESPONSIVE_SCALES.get(level, self.RESPONSIVE_SCALES["body"])
     
-    def extract_from_yaml(self, typography_yaml: Dict[str, any]) -> Dict[str, any]:
+    def extract_from_yaml(self, typography_yaml: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extrae información de tipografía desde YAML de DESIGN.md.
         
