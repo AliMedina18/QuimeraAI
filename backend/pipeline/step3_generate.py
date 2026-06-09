@@ -39,7 +39,7 @@ SPANISH_KEYWORDS = [
 async def generate_code(context: DesignContext) -> DesignContext:
     """
     PASO 3: Genera HTML premium desde DESIGN.md + imagenes reales.
-    Temperatura 0.55 -- balance entre creatividad y calidad tecnica.
+    Temperatura 0.65 -- creatividad visual alta.
     """
     if not context.design_markdown:
         raise ValueError("DESIGN.md no encontrado en el contexto")
@@ -86,7 +86,8 @@ async def generate_code(context: DesignContext) -> DesignContext:
         )
 
     user_prompt = (
-        "Generate a COMPLETE, PRODUCTION-READY HTML website.\n\n"
+        "Generate a COMPLETE, AWARD-WINNING, PRODUCTION-READY HTML website.\n"
+        "This must look like it was built by a top-tier design agency. NOT a template. NOT Bootstrap. NOT generic.\n\n"
         + lang_instruction
         + "=== BRIEF ===\n"
         + context.design_brief
@@ -99,7 +100,7 @@ async def generate_code(context: DesignContext) -> DesignContext:
         "  (1) Copy each URL exactly -- no modifications, no shortening.\n"
         "  (2) Every slot must be used. No missing images.\n"
         "  (3) hero and section_bg: CSS background-image property.\n"
-        "  (4) card_* and avatar_*: <img> tags with crossorigin='anonymous'.\n"
+        "  (4) card_* and avatar_*: <img> tags with crossorigin=\'anonymous\'.\n"
         "  (5) All image containers: object-fit: cover + defined width/height.\n"
         "  (6) Never placeholder.com or empty src.\n\n"
         + img_lines
@@ -111,42 +112,56 @@ async def generate_code(context: DesignContext) -> DesignContext:
         "Extract: visual reference/mood, elevation style, shape language, color roles.\n"
         "These OVERRIDE every default. If DESIGN.md says asymmetric, do asymmetric.\n\n"
         "STEP 2 -- DESIGN PAGE STRUCTURE FROM SCRATCH\n"
-        "Do NOT pick from a preset list. Choose sections and layouts that make this\n"
-        "brand feel SPECIFIC and MEMORABLE. Use the layout patterns in the system prompt.\n"
-        "Different sections must use different layout patterns.\n\n"
+        "Do NOT pick from a preset template list. This site must feel UNIQUE and SPECIFIC.\n"
+        "Every section uses a different layout pattern. No two sections look the same.\n\n"
         "STEP 3 -- CSS FOUNDATION\n"
-        "Convert every YAML token from DESIGN.md into a CSS custom property:\n"
-        "  --color-primary, --color-surface, --font-display, --radius-card, etc.\n"
-        "Load Google Fonts for the fontFamily tokens. Apply via CSS variables throughout.\n"
-        "Implement elevation EXACTLY as DESIGN.md describes:\n"
-        "  glassmorphism: backdrop-filter + rgba backgrounds\n"
-        "  tonal: surface-container color levels, no box-shadow\n"
-        "  editorial flat: borders + scale, no blur\n\n"
+        "Convert every YAML token from DESIGN.md into a CSS custom property.\n"
+        "Load Google Fonts. Apply via CSS variables throughout.\n"
+        "Implement elevation EXACTLY as DESIGN.md describes.\n"
+        "Section backgrounds are NOT flat colors -- they have gradients, textures, or decorative blur elements.\n\n"
         "STEP 4 -- IMPLEMENT EVERY SECTION\n"
-        "Use clamp() for fluid typography. Use ALL color tokens -- if palette has 10, all 10 appear.\n"
+        "Use clamp() for fluid typography. Use ALL color tokens.\n"
         "Apply color to section backgrounds, borders, gradients -- not just buttons.\n"
-        "Alternate layout patterns between sections.\n\n"
-        "STEP 5 -- JAVASCRIPT (all required)\n"
-        "  - html { scroll-behavior: smooth }\n"
-        "  - IntersectionObserver: .reveal elements get .visible class on viewport entry.\n"
-        "    CSS: .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.6s, transform 0.6s; }\n"
-        "         .reveal.visible { opacity: 1; transform: none; }\n"
-        "    Apply .reveal to: section headlines, cards, feature blocks, stat numbers.\n"
-        "    Stagger: .reveal:nth-child(n) { transition-delay: calc(n * 0.1s) }\n"
-        "  - Navbar: .scrolled class at scrollY > 50px\n"
-        "  - Mobile nav toggle if nav has links\n\n"
+        "Every section title has an overline (uppercase label, letter-spacing: 0.15em, color: primary, font-size: 0.75rem).\n"
+        "Cards have premium hover effects: translateY(-6px) + shadow increase + image zoom.\n\n"
+        "STEP 5 -- JAVASCRIPT (ALL MANDATORY)\n"
+        "  - scroll-behavior: smooth on html\n"
+        "  - IntersectionObserver: .reveal elements get .visible on viewport entry\n"
+        "    .reveal { opacity:0; transform:translateY(32px); transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1); }\n"
+        "    .reveal.visible { opacity:1; transform:none; }\n"
+        "    Stagger delays with nth-child. Apply to: headlines, cards, feature blocks, stat numbers.\n"
+        "  - Navbar .scrolled class at scrollY > 50px with backdrop-filter\n"
+        "  - Parallax on hero background: backgroundPositionY = scrollY * 0.4\n"
+        "  - CountUp animation for any numeric stats\n"
+        "  - FLOWBITE JS: add before </body> ONLY if you use an interactive component\n"
+        "    (accordion, modal, drawer, dropdown, tabs, toast, banner, popover):\n"
+        "    <script src=\"https://cdn.jsdelivr.net/npm/flowbite@2.3.0/dist/flowbite.min.js\"></script>\n"
+        "    DO NOT include it if you have no data-* interactive components.\n\n"
         "=== FINAL CHECKLIST ===\n"
-        "[ ] Layout reflects DESIGN.md visual reference, not a generic template\n"
+        "[ ] Design is UNIQUE and SPECIFIC to this brief -- not a generic template\n"
+        "[ ] Buttons have premium style: gradient, glow, or animated border (NOT flat rectangles)\n"
+        "[ ] Every section has visual richness: gradient BG, blur decoration, or decorative element\n"
+        "[ ] Every section title has an overline label\n"
+        "[ ] Cards have hover animation: translateY(-6px) + shadow + image zoom\n"
+        "[ ] Layout reflects DESIGN.md visual reference -- elevation, shape, color roles\n"
         "[ ] All YAML color tokens are CSS custom properties AND all are used\n"
-        "[ ] EVERY image URL appears verbatim (all 12 slots used, no broken images)\n"
-        "[ ] hero/section_bg: background-image CSS. card_*/avatar_*: img with object-fit cover\n"
-        "[ ] Elevation matches DESIGN.md prose exactly\n"
-        "[ ] clamp() on all display/headline sizes. Google Fonts loaded. CSS variables applied.\n"
-        "[ ] Sections alternate layout patterns\n"
-        "[ ] .reveal/.visible IntersectionObserver on headlines, cards, features\n"
+        "[ ] EVERY image URL appears verbatim (all 12 slots, no broken images)\n"
+        "[ ] hero/section_bg: background-image CSS. card_*/avatar_*: img object-fit cover\n"
+        "[ ] clamp() on all display/headline sizes. Letter-spacing -0.03em on display fonts.\n"
+        "[ ] .reveal IntersectionObserver on headlines, cards, features with stagger delays\n"
+        "[ ] Parallax on hero. CountUp on stats. Navbar backdrop on scroll.\n"
+        "[ ] Flowbite JS CDN only if an interactive component is actually used\n"
         "[ ] WCAG AA: text on backgrounds >= 4.5:1\n"
-        "[ ] Mobile responsive at <= 768px with @media queries\n"
-        "[ ] ALL text content is in the same language as the brief\n\n"
+        "[ ] Hero headline: clamp(3.5rem,7vw,7rem) font-weight:800 -- GRANDE e impactante, nunca pequeno\n"
+        "[ ] Hero texto: text-align:LEFT, align-items:flex-start -- NUNCA centrado en el hero\n"
+        "[ ] Hero CTA: padding:18px 40px; min-width:200px -- prominente, nunca tiny\n"
+        "[ ] Alineacion: parrafos y subtitulos LEFT. Solo centrar titulares cortos (max 4 palabras)\n"
+        "[ ] Hero text column: flex:1; min-width:min(520px,100%); padding:80px 64px\n"
+        "[ ] Imagen-texto equilibrio: ninguna columna supera 60% del ancho, aspect-ratio definido en imagenes\n"
+        "[ ] FORMULARIOS: NUNCA input[type=number] con spinners -- usar type=text inputmode=numeric\n"
+        "[ ] FORMULARIOS: input[type=date] pre-poblado con hoy via JS en DOMContentLoaded\n"
+        "[ ] Mobile responsive at <= 768px\n"
+        "[ ] ALL text in the same language as the brief\n\n"
         "OUTPUT: Only raw HTML. First line <!DOCTYPE html>. Last line </html>. No markdown.\n"
     )
 
@@ -155,10 +170,10 @@ async def generate_code(context: DesignContext) -> DesignContext:
     html_output = await client.generate_text(
         prompt=full_prompt,
         model="pro",
-        temperature=0.55,
+        temperature=0.65,
     )
 
-    # Strip markdown code fences -- Gemini sometimes wraps HTML in ```html...```
+    # Strip markdown code fences
     html_output = html_output.strip()
     if html_output.startswith("```html"):
         html_output = html_output[7:]

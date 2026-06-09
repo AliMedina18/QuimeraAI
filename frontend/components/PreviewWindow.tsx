@@ -19,6 +19,31 @@ interface PreviewWindowProps {
 const NAV_BLOCK_SCRIPT = `
 <script>
 (function() {
+  // Capa 1: en DOMContentLoaded, reescribir TODOS los <a> antes de que el usuario haga click
+  function neutralizeLinks() {
+    document.querySelectorAll('a[href]').forEach(function(a) {
+      var href = (a.getAttribute('href') || '').trim();
+      if (!href || href === '#' || href.startsWith('#') || href.startsWith('javascript:')) return;
+      var isExternal = href.indexOf('http://') === 0 || href.indexOf('https://') === 0;
+      if (isExternal) {
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+      } else {
+        // Enlace interno (/, /about, tel:, mailto: etc) -> desactivar navegacion
+        a.setAttribute('data-href', href);
+        a.setAttribute('href', '#');
+        a.style.cursor = 'pointer';
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', neutralizeLinks);
+  } else {
+    neutralizeLinks();
+  }
+
+  // Capa 2: interceptor de clicks como respaldo (captura links generados dinamicamente)
   function findAnchor(el) {
     while (el && el !== document.body) {
       if (el.tagName && el.tagName.toUpperCase() === 'A') return el;
@@ -31,17 +56,19 @@ const NAV_BLOCK_SCRIPT = `
     var a = findAnchor(e.target);
     if (!a) return;
     var href = (a.getAttribute('href') || '').trim();
-    if (!href || href.startsWith('javascript:') || href.startsWith('#')) return;
+    if (!href || href === '#' || href.startsWith('#') || href.startsWith('javascript:')) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    var isHttp = href.indexOf('http://') === 0 || href.indexOf('https://') === 0;
-    if (isHttp) window.open(href, '_blank', 'noopener');
+    var isExternal = href.indexOf('http://') === 0 || href.indexOf('https://') === 0;
+    if (isExternal) window.open(href, '_blank', 'noopener');
   }, true);
 
+  // Capa 3: bloquear submit de formularios (no navegan fuera)
   document.addEventListener('submit', function(e) {
     e.preventDefault();
   }, true);
 
+  // Capa 4: Navigation API para onclick con window.location = '...'
   if (window.navigation) {
     window.navigation.addEventListener('navigate', function(e) {
       var url = (e.destination && e.destination.url) || '';
@@ -96,7 +123,7 @@ const PreviewWindow: FC<PreviewWindowProps> = ({ htmlOutput }) => {
         <iframe
           srcDoc={safeHtml}
           className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          sandbox="allow-scripts allow-popups allow-forms"
           title="Design Preview"
         />
       </div>

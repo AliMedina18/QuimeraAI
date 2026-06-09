@@ -9,6 +9,7 @@ Para editar una regla especifica, editar el archivo correspondiente en rules/:
   r05_gestalt.py      Leyes Gestalt, Occam, proporciones, tipografia
   r06_interactive.py  Carrusel, tabs, acordeon, hover, reveal
   r07_technical.py    CSS values: espaciado, responsive, fonts, imagenes, WCAG
+  r08_flowbite.py     Flowbite UI: componentes interactivos y patrones visuales
 """
 
 from pipeline.prompts.rules.r01_layout import LAYOUT_PATTERNS
@@ -18,6 +19,7 @@ from pipeline.prompts.rules.r04_ux_principles import UX_PRINCIPLES
 from pipeline.prompts.rules.r05_gestalt import GESTALT_RULES
 from pipeline.prompts.rules.r06_interactive import INTERACTIVE_COMPONENTS
 from pipeline.prompts.rules.r07_technical import TECHNICAL_QUALITY
+from pipeline.prompts.rules.r08_flowbite import FLOWBITE_COMPONENTS
 
 _CORE_IDENTITY = (
     "You are a senior UI/UX engineer and visual designer producing award-winning websites.\n"
@@ -68,11 +70,12 @@ def build_system_prompt(brief: str = "") -> str:
         UX_PRINCIPLES,
         GESTALT_RULES,
         TECHNICAL_QUALITY,
+        FLOWBITE_COMPONENTS,
     ]
 
     # Incluir reglas de interactivos solo si el brief los menciona
     if any(kw in brief_lower for kw in _INTERACTIVE_KEYWORDS):
-        sections.insert(-1, INTERACTIVE_COMPONENTS)
+        sections.insert(-2, INTERACTIVE_COMPONENTS)
 
     sections.append(_BUILD_PROCESS)
     return "\n".join(sections)
