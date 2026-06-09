@@ -857,10 +857,13 @@ Este es el OUTPUT FINAL.
 """
 
         full_prompt = f"{SYSTEM_PROMPT}\n\n{user_prompt}"
+        # use_search=True: Gemini busca en Google para encontrar referencias
+        # reales de diseño, sitios de competencia, tendencias visuales del sector.
         design_markdown = await client.generate_text(
             prompt=full_prompt,
             model="pro",
             temperature=0.85,
+            use_search=True,
         )
 
         context.design_markdown = design_markdown
@@ -871,5 +874,5 @@ Este es el OUTPUT FINAL.
         return context
 
     except Exception as e:
-        logger.error("❌ Error en PASO 1: %s", str(e))
+        logger.error("\u274c Error en PASO 1: %s", str(e))
         raise

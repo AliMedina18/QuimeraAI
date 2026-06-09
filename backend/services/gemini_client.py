@@ -78,6 +78,7 @@ class GeminiClient:
         model: str = "pro",
         temperature: float = 0.7,
         max_output_tokens: Optional[int] = None,
+        use_search: bool = False,
     ) -> str:
         """
         Genera texto a partir de un prompt.
@@ -85,11 +86,21 @@ class GeminiClient:
         Args:
             model: 'pro' (gemini-2.5-pro) o 'flash' (gemini-2.5-flash)
             temperature: 0.0 = determinista, 1.0 = creativo
-                         Los scorers del Paso 2 usan 0.0 para reproducibilidad
+            use_search: True = activa Google Search grounding (Gemini busca en internet)
+                        Ideal para Step 1: investigar referencias de diseno reales.
         """
+        tools = None
+        if use_search:
+            try:
+                tools = [types.Tool(google_search=types.GoogleSearch())]
+            except Exception:
+                logger.warning("Google Search grounding no disponible en este entorno.")
+                tools = None
+
         config = types.GenerateContentConfig(
             temperature=temperature,
             max_output_tokens=max_output_tokens,
+            tools=tools,
         )
         # asyncio.to_thread: ejecuta la llamada sincrona en un thread del pool.
         # Sin esto bloquea el event loop de FastAPI durante 5-30 segundos.
