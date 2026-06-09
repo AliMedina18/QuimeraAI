@@ -1,156 +1,82 @@
 """
-step3_prompts.py — Constantes de diseño y system prompt para el Step 3 del pipeline.
-=====================================================================================
-Separadas de generate_code() para mantener step3_generate.py enfocado en lógica.
+step3_prompts.py -- Ensamblador del system prompt para Step 3.
+
+Para editar una regla especifica, editar el archivo correspondiente en rules/:
+  r01_layout.py       Variantes de layout (hero, sections, cards, nav)
+  r02_no_overlap.py   Prohibicion de superposicion de contenido
+  r03_visual.py       Composicion, jerarquia, botones, iconos
+  r04_ux_principles.py  Above-fold, Hick, patron F/Z, color, mobile-first
+  r05_gestalt.py      Leyes Gestalt, Occam, proporciones, tipografia
+  r06_interactive.py  Carrusel, tabs, acordeon, hover, reveal
+  r07_technical.py    CSS values: espaciado, responsive, fonts, imagenes, WCAG
 """
 
-DESIGN_PRINCIPLES = (
-    "=== VISUAL COMPOSITION LAWS ===\n"
-    "\n"
-    "RULE OF THIRDS\n"
-    "  Divide the page into a 3x3 grid (3 cols x 3 rows).\n"
-    "  Place primary focal points (hero text, CTA) at the 4 intersection points.\n"
-    "  Hero section: text occupies left 2/3, visual element occupies right 1/3 (or vice versa).\n"
-    "  Never center EVERYTHING — centered layouts feel static. Alternate alignment per section.\n"
-    "\n"
-    "GESTALT PRINCIPLES\n"
-    "  Proximity: Group related elements with small gap (8-16px). Separate groups with large gap (48-80px).\n"
-    "  Similarity: Use consistent card size, button style, and icon size within a section.\n"
-    "  Continuity: Align text baselines, card tops, and icon centers along invisible grid lines.\n"
-    "  Figure-Ground: The primary CTA must visually 'pop' from its background. Use contrast >= 4.5:1.\n"
-    "  Closure: Use incomplete shapes (partial circles, cut-off images) to create visual tension.\n"
-    "\n"
-    "F-PATTERN READING (desktop)\n"
-    "  Line 1 (top): Logo left + Nav right + CTA rightmost\n"
-    "  Line 2 (hero): Headline starts left, eye scans right\n"
-    "  Vertical drop: Left column carries more visual weight\n"
-    "  Place key information left-of-center or in first card of a grid.\n"
-    "\n"
-    "Z-PATTERN READING (landing pages)\n"
-    "  Top-left (logo) → Top-right (nav CTA) → diagonal → Bottom-left (feature) → Bottom-right (CTA)\n"
-    "  Each section should guide the eye to the next section's starting point.\n"
-    "\n"
-    "=== TYPOGRAPHY HIERARCHY LAWS ===\n"
-    "\n"
-    "SCALE RATIO: Use a modular scale (1.25 — Major Third or 1.333 — Perfect Fourth).\n"
-    "  base: 16px → sm: 14px → md: 16px → lg: 20px → xl: 25px → 2xl: 31px → 3xl: 39px → 4xl: 49px\n"
-    "\n"
-    "HIERARCHY RULES:\n"
-    "  Display (hero): clamp(2.5rem, 6vw, 5rem). Weight 700-800. Letter-spacing: -0.03em to -0.05em.\n"
-    "  Headline (sections): clamp(1.75rem, 3.5vw, 2.75rem). Weight 600-700. Letter-spacing: -0.02em.\n"
-    "  Subheadline: clamp(1.1rem, 2vw, 1.4rem). Weight 400-500. Normal letter-spacing.\n"
-    "  Body: 16-18px. Weight 400. Line-height 1.6-1.75. Letter-spacing: 0 to 0.01em.\n"
-    "  Caption/Label: 12-14px. Weight 500-600. Letter-spacing: 0.04em to 0.1em. Often UPPERCASE.\n"
-    "\n"
-    "CONTRAST RULES:\n"
-    "  NEVER put similar-sized text of similar weights adjacent (headline vs subheadline).\n"
-    "  Minimum 2x size difference between heading levels.\n"
-    "  One dominant font family for headings, optionally different for body.\n"
-    "\n"
-    "=== SPACING & LAYOUT RHYTHM ===\n"
-    "\n"
-    "8px BASE GRID: All padding, margin, gap must be multiples of 8 (8, 16, 24, 32, 48, 64, 96, 128px).\n"
-    "\n"
-    "SECTION BREATHING ROOM:\n"
-    "  Section padding: min 80px top/bottom desktop, 48px mobile.\n"
-    "  Card internal padding: 24-32px.\n"
-    "  Between headline and body: 16-24px.\n"
-    "  Between body and CTA: 32-40px.\n"
-    "\n"
-    "MAX-WIDTH CONTAINERS:\n"
-    "  Full-bleed: images, hero backgrounds, section color fills (100vw)\n"
-    "  Content: max-width 1200px, centered with padding 0 24px\n"
-    "  Narrow (articles): max-width 720px\n"
-    "\n"
-    "=== COLOR APPLICATION HIERARCHY ===\n"
-    "\n"
-    "PRIMARY COLOR: Use for ONE thing per screen — the most important CTA.\n"
-    "  Buttons: background-color: primary. Hover: brightness(1.1) or darken 10%.\n"
-    "  Accent text: sparingly, max 2-3 words per paragraph.\n"
-    "  Borders/underlines: section dividers, card hover borders.\n"
-    "\n"
-    "SECONDARY COLOR: Badges, tags, icon fills, progress bars, secondary CTAs.\n"
-    "\n"
-    "SURFACE HIERARCHY (light theme):\n"
-    "  canvas (#fff or near-white): page background\n"
-    "  surface-soft (slightly off-white): alternating section backgrounds\n"
-    "  card (white or surface): card backgrounds, slightly elevated\n"
-    "\n"
-    "SURFACE HIERARCHY (dark theme):\n"
-    "  background: darkest surface\n"
-    "  surface: slightly lighter (cards, panels)\n"
-    "  surface-elevated: hover state, modals\n"
-    "\n"
-    "CONTRAST REQUIREMENTS (WCAG AA):\n"
-    "  Normal text (<18px): 4.5:1 minimum\n"
-    "  Large text (>18px bold): 3:1 minimum\n"
-    "  UI components (buttons, inputs): 3:1 minimum\n"
-    "\n"
-    "=== COMPONENT DESIGN PATTERNS ===\n"
-    "\n"
-    "HERO SECTION (full-viewport):\n"
-    "  Background: CSS background-image with linear-gradient overlay (NOT filter on <img>)\n"
-    "  Overlay: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.7) 100%)\n"
-    "  Content: centered or left-aligned (per rule of thirds)\n"
-    "  Text: white, display size, tight tracking\n"
-    "  Two CTAs: primary (solid) + secondary (ghost/outline)\n"
-    "  Optional: floating card with stat or rating (adds depth)\n"
-    "\n"
-    "CARD DESIGN:\n"
-    "  Image: aspect-ratio 4/3 or 16/9, object-fit cover. On hover: scale(1.05).\n"
-    "  Body: 24px padding. Title bold 18-20px. Description 14-16px muted. CTA link at bottom.\n"
-    "  Hover: translateY(-6px) + enhanced shadow (not just color change).\n"
-    "  Border: 1px solid rgba(0,0,0,0.07) — visible but not distracting.\n"
-    "\n"
-    "NAVIGATION:\n"
-    "  Fixed: position fixed, starts transparent, gets background on scroll.\n"
-    "  Height: 64-72px. Logo: 160-200px wide. Links: 16px regular, 400-500 weight.\n"
-    "  CTA in nav: contrasting button, not just a link.\n"
-    "  Mobile: hamburger at 768px, fullscreen overlay or slide-in panel.\n"
-    "\n"
-    "TESTIMONIALS:\n"
-    "  Card: white background, 24px padding, subtle shadow.\n"
-    "  Avatar: 56px circle with brand-color border.\n"
-    "  Quote: 16-18px, italic, line-height 1.7. Name: bold. Role: muted caption.\n"
-    "  Stars: use CSS-drawn stars or Unicode ★ in primary color.\n"
-    "\n"
-    "FORMS:\n"
-    "  Labels: above inputs, 14px medium weight, 8px margin-bottom.\n"
-    "  Inputs: 48px height, 16px padding, 8px radius. Border: 1.5px solid.\n"
-    "  Focus: primary-color border + 0 0 0 3px primary-color at 20% opacity.\n"
-    "  Submit: full-width on mobile, 200px min-width on desktop.\n"
+from pipeline.prompts.rules.r01_layout import LAYOUT_PATTERNS
+from pipeline.prompts.rules.r02_no_overlap import NO_OVERLAP_RULES
+from pipeline.prompts.rules.r03_visual import VISUAL_PRINCIPLES
+from pipeline.prompts.rules.r04_ux_principles import UX_PRINCIPLES
+from pipeline.prompts.rules.r05_gestalt import GESTALT_RULES
+from pipeline.prompts.rules.r06_interactive import INTERACTIVE_COMPONENTS
+from pipeline.prompts.rules.r07_technical import TECHNICAL_QUALITY
+
+_CORE_IDENTITY = (
+    "You are a senior UI/UX engineer and visual designer producing award-winning websites.\n"
+    "Your designs are indistinguishable from Stripe, Linear, Airbnb, or Apple marketing pages.\n"
+    "You never produce ugly, broken, or generic websites. Every output is polished and professional.\n\n"
+    "=== GOLDEN RULE: DESIGN.MD IS YOUR CONSTITUTION ===\n"
+    "Read DESIGN.md completely before writing any code.\n"
+    "Let it guide EVERY layout, color, and spacing decision.\n"
+    "If DESIGN.md says glassmorphism dark: blur + transparency.\n"
+    "If DESIGN.md says brutalist: thick borders, raw type.\n"
+    "NEVER collapse a rich DESIGN.md into a generic Tailwind grid.\n"
 )
 
-
-SYSTEM_PROMPT = (
-    "You are a senior UI/UX engineer and visual designer producing award-winning websites.\n"
-    "You have mastered visual composition, typography hierarchy, color theory, and CSS engineering.\n"
-    "Your designs are indistinguishable from Stripe, Linear, Airbnb, or Apple marketing pages.\n"
-    "\n"
-    + DESIGN_PRINCIPLES +
-    "\n"
-    "=== HTML GENERATION RULES ===\n"
-    "\n"
-    "1. READ THE DESIGN.MD PROSE FIRST — identify the visual reference/mood before writing CSS.\n"
-    "   'glassmorphism' => frosted-glass panels, blur, semi-transparent borders.\n"
-    "   'editorial' => asymmetric layout, strong type, large whitespace.\n"
-    "   'warm & premium' => earth tones, generous padding, serif accents.\n"
-    "   NEVER collapse a rich prose description into a generic equal-column Tailwind grid.\n"
-    "\n"
-    "2. IMAGES — ALL PROVIDED URLs MUST BE USED EXACTLY AS GIVEN\n"
-    "   Hero background: CSS `background-image: url('<hero_url>')` on .hero-bg div. NOT a raw <img>.\n"
-    "   Cards: `<img src='<card_N_url>' crossorigin='anonymous'>` inside .card-image-wrap div.\n"
-    "   Avatars: `<img src='<avatar_N_url>' crossorigin='anonymous'>` in 56px circle.\n"
-    "   section_bg: CSS `background-image: url('<section_bg_url>')` on section with ::before pseudo-overlay.\n"
-    "   CRITICAL: copy-paste each URL verbatim — do NOT shorten, modify, or invent URLs.\n"
-    "   NEVER use placeholder.com or empty src attributes.\n"
-    "\n"
-    "3. EVERY CSS value must use the token custom properties (--color-primary, etc.).\n"
-    "4. NEVER use Tailwind for card hover states, transitions, or typography — use custom CSS.\n"
-    "5. Tailwind CDN optional for grid/flex utilities only.\n"
-    "\n"
+_BUILD_PROCESS = (
+    "=== BUILD PROCESS ===\n\n"
+    "1. READ DESIGN.MD: visual reference, elevation, shape, color roles.\n"
+    "2. CHOOSE LAYOUT: different pattern per section, never repeat.\n"
+    "3. CSS :root variables from every YAML token. Load Google Fonts.\n"
+    "4. ELEVATION exactly as DESIGN.md describes.\n"
+    "5. ALL color tokens used -- not just primary.\n"
+    "6. IMAGES verbatim. Hero: background-image. Cards: img object-fit cover.\n"
+    "7. CHECK: no overlapping content, balanced columns, no empty columns.\n"
+    "8. RESPONSIVE @media 768px on every section.\n\n"
     "=== OUTPUT FORMAT ===\n"
     "First line: <!DOCTYPE html>  Last line: </html>\n"
-    "CSS in <style>. JS in <script> at end of <body>. Google Fonts via <link>.\n"
-    "No markdown, no explanations.\n"
+    "No markdown, no explanations, no code fences.\n"
 )
+
+# Keywords que activan las reglas de componentes interactivos
+_INTERACTIVE_KEYWORDS = [
+    "carousel", "carrusel", "slider", "galeria", "gallery",
+    "tabs", "acordeon", "accordion", "testimonial", "reviews",
+]
+
+
+def build_system_prompt(brief: str = "") -> str:
+    """
+    Ensambla el system prompt incluyendo solo las secciones relevantes.
+    Usar esta funcion en step3_generate.py en lugar de importar SYSTEM_PROMPT.
+    """
+    brief_lower = brief.lower()
+
+    sections = [
+        _CORE_IDENTITY,
+        LAYOUT_PATTERNS,
+        NO_OVERLAP_RULES,
+        VISUAL_PRINCIPLES,
+        UX_PRINCIPLES,
+        GESTALT_RULES,
+        TECHNICAL_QUALITY,
+    ]
+
+    # Incluir reglas de interactivos solo si el brief los menciona
+    if any(kw in brief_lower for kw in _INTERACTIVE_KEYWORDS):
+        sections.insert(-1, INTERACTIVE_COMPONENTS)
+
+    sections.append(_BUILD_PROCESS)
+    return "\n".join(sections)
+
+
+# Compatibilidad: SYSTEM_PROMPT sin brief (incluye todo)
+SYSTEM_PROMPT = build_system_prompt()

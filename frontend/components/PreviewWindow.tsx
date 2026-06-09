@@ -1,11 +1,6 @@
 /**
  * PreviewWindow.tsx - Renderiza el HTML generado en un iframe
- *
- * Enfoque simple (como Google Stitch):
- * El backend genera HTML autocontenido → se pasa directamente a srcDoc.
- * Sin transpilación, sin Babel, sin CDN de React. Funciona instantáneo.
  */
-
 'use client';
 
 import type { FC } from 'react';
@@ -14,7 +9,64 @@ interface PreviewWindowProps {
   htmlOutput: string;
 }
 
+/**
+ * Script inyectado en el HTML generado para bloquear toda navegacion no deseada.
+ * Tres capas de proteccion:
+ *   1. Walk-up manual del DOM (captura clicks en SVG/iconos/elementos anidados)
+ *   2. Bloqueo de form submit
+ *   3. Navigation API (captura onclick con window.location = '...')
+ */
+const NAV_BLOCK_SCRIPT = `
+<script>
+(function() {
+  function findAnchor(el) {
+    while (el && el !== document.body) {
+      if (el.tagName && el.tagName.toUpperCase() === 'A') return el;
+      el = el.parentNode;
+    }
+    return null;
+  }
+
+  document.addEventListener('click', function(e) {
+    var a = findAnchor(e.target);
+    if (!a) return;
+    var href = (a.getAttribute('href') || '').trim();
+    if (!href || href.startsWith('javascript:') || href.startsWith('#')) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    var isHttp = href.indexOf('http://') === 0 || href.indexOf('https://') === 0;
+    if (isHttp) window.open(href, '_blank', 'noopener');
+  }, true);
+
+  document.addEventListener('submit', function(e) {
+    e.preventDefault();
+  }, true);
+
+  if (window.navigation) {
+    window.navigation.addEventListener('navigate', function(e) {
+      var url = (e.destination && e.destination.url) || '';
+      var currentBase = location.href.split('#')[0];
+      var destBase = url.split('#')[0];
+      if (destBase !== currentBase && e.canIntercept) {
+        e.intercept({ handler: function() {} });
+      }
+    });
+  }
+})();
+<\/script>`;
+
+const injectNavBlock = (html: string): string => {
+  const bodyMatch = html.match(/<body[^>]*>/i);
+  if (bodyMatch && bodyMatch.index !== undefined) {
+    const insertAt = bodyMatch.index + bodyMatch[0].length;
+    return html.slice(0, insertAt) + NAV_BLOCK_SCRIPT + html.slice(insertAt);
+  }
+  return NAV_BLOCK_SCRIPT + html;
+};
+
 const PreviewWindow: FC<PreviewWindowProps> = ({ htmlOutput }) => {
+  const safeHtml = injectNavBlock(htmlOutput);
+
   const handleOpenFullscreen = () => {
     const blob = new Blob([htmlOutput], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -23,7 +75,6 @@ const PreviewWindow: FC<PreviewWindowProps> = ({ htmlOutput }) => {
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-white">
-      {/* Header — Apple style: minimal */}
       <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 py-3.5">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold text-gray-900">Sitio web generado</h3>
@@ -34,21 +85,16 @@ const PreviewWindow: FC<PreviewWindowProps> = ({ htmlOutput }) => {
         </div>
         <button
           onClick={handleOpenFullscreen}
-          className="
-            px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 
-            text-xs font-medium rounded-md transition-all duration-150
-            flex items-center gap-1.5
-          "
+          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-md transition-all duration-150"
           title="Abrir en pantalla completa"
         >
-          ↗ Expandir
+          Expandir
         </button>
       </div>
 
-      {/* Iframe — full responsive preview */}
       <div className="flex-1 overflow-hidden bg-gray-50">
         <iframe
-          srcDoc={htmlOutput}
+          srcDoc={safeHtml}
           className="w-full h-full border-0"
           sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
           title="Design Preview"

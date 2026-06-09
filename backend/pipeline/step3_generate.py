@@ -1,31 +1,45 @@
 """
-step3_generate.py — Generación de HTML a partir de DESIGN.md
-=============================================================
+step3_generate.py - Generacion de HTML a partir de DESIGN.md
 PASO 3 del pipeline: toma el DesignContext con DESIGN.md completo
-y produce HTML production-ready usando Gemini + imágenes reales.
-
-Dependencias:
-    services/image_generator.py         -> get_image_urls()
-    pipeline/prompts/step3_prompts.py   -> SYSTEM_PROMPT
+y produce HTML production-ready usando Gemini + imagenes reales.
 """
 
 import logging
 
 from models import DesignContext
-from pipeline.prompts.step3_prompts import SYSTEM_PROMPT
+from pipeline.prompts.step3_prompts import build_system_prompt
 from services.gemini_client import GeminiClient
 from services.image_generator import get_image_urls
 
 logger = logging.getLogger(__name__)
 
+# Per-slot instructions for image placement
+SLOT_INSTRUCTIONS = {
+    "hero":       "Hero section -- use as CSS background-image on the hero wrapper div.",
+    "hero_alt":   "Secondary hero or above-the-fold accent image.",
+    "section_bg": "Section background -- use as CSS background-image on a full-bleed section.",
+    "card_1":     "Card/feature image 1 -- use inside an img tag with object-fit: cover.",
+    "card_2":     "Card/feature image 2 -- use inside an img tag with object-fit: cover.",
+    "card_3":     "Card/feature image 3 -- use inside an img tag with object-fit: cover.",
+    "card_4":     "Card/feature image 4 -- use inside an img tag with object-fit: cover.",
+    "card_5":     "Card/feature image 5 -- use inside an img tag with object-fit: cover.",
+    "card_6":     "Card/feature image 6 -- use inside an img tag with object-fit: cover.",
+    "avatar_1":   "Testimonial/team avatar 1 -- 64px circle img.",
+    "avatar_2":   "Testimonial/team avatar 2 -- 64px circle img.",
+    "avatar_3":   "Testimonial/team avatar 3 -- 64px circle img.",
+}
+
+# Spanish detection keywords
+SPANISH_KEYWORDS = [
+    "para", "una", "con", "sitio", "web", "empresa", "que",
+    " de ", " en ", " la ", " el ", "diseno", "pagina",
+]
+
 
 async def generate_code(context: DesignContext) -> DesignContext:
     """
     PASO 3: Genera HTML premium desde DESIGN.md + imagenes reales.
-
-    - Pasa DESIGN.md completo (prose + tokens)
-    - URLs de imagenes desde image_generator (cascada: API -> curado -> picsum)
-    - Temperatura 0.35, modelo Pro
+    Temperatura 0.55 -- balance entre creatividad y calidad tecnica.
     """
     if not context.design_markdown:
         raise ValueError("DESIGN.md no encontrado en el contexto")
@@ -35,73 +49,113 @@ async def generate_code(context: DesignContext) -> DesignContext:
     client = GeminiClient()
     image_urls = await get_image_urls(context.design_brief)
 
-    img_lines = "\n".join(f"  {k}: {v}" for k, v in image_urls.items())
+    # Build explicit per-slot image instructions
+    img_lines_list = []
+    for k, v in image_urls.items():
+        instruction = SLOT_INSTRUCTIONS.get(k, "Use in an appropriate section.")
+        img_lines_list.append(f"  {k}: {v}\n    -> {instruction}")
+    img_lines = "\n".join(img_lines_list)
+
+    # Build image plan context from Step 2
+    image_plan_context = ""
+    if context.image_generation_plan and context.image_generation_plan.images:
+        plan_lines = []
+        for img in context.image_generation_plan.images:
+            plan_lines.append(
+                f"  section={img.section} | intent={img.description} | style={img.style}"
+            )
+        image_plan_context = (
+            "\n=== IMAGE PLACEMENT PLAN (from Step 2) ===\n"
+            "Match image slots to sections by intent. Do NOT always use default positions.\n"
+            + "\n".join(plan_lines)
+            + "\n"
+        )
+
+    # Language detection
+    brief_lower = context.design_brief.lower()
+    spanish_hits = sum(1 for w in SPANISH_KEYWORDS if w in brief_lower)
+    if spanish_hits >= 3:
+        lang_instruction = (
+            "LANGUAGE: The brief is in SPANISH. ALL site text (headlines, body copy, "
+            "labels, buttons, placeholders, footer text) MUST be written in Spanish. "
+            "No English text anywhere in the site.\n\n"
+        )
+    else:
+        lang_instruction = (
+            "LANGUAGE: The brief is in ENGLISH. ALL site text must be in English.\n\n"
+        )
 
     user_prompt = (
-        "Generate a COMPLETE, PRODUCTION-READY HTML website for this brief.\n\n"
-        f"=== BRIEF ===\n{context.design_brief}\n\n"
-        "=== DESIGN.MD (this is your SPEC -- implement it faithfully) ===\n"
-        f"{context.design_markdown}\n\n"
-        "=== IMAGES -- copy every URL verbatim, zero broken images allowed ===\n"
-        f"{img_lines}\n\n"
-        "=== HOW TO BUILD THIS SITE ===\n\n"
-        "PHASE 1 -- READ THE DESIGN.MD OVERVIEW\n"
-        "Before writing a single line of CSS, read the Overview prose.\n"
-        "Answer: What TYPE of website is this? (restaurant, SaaS, law firm, portfolio, etc.)\n"
-        "Answer: What VISUAL REFERENCE was chosen? (glassmorphism? editorial? luxury? minimal?)\n"
-        "Answer: What ELEVATION style? (tonal layers, shadows, blur, flat?)\n"
-        "These answers determine EVERY CSS decision below.\n\n"
-        "PHASE 2 -- DECIDE THE PAGE STRUCTURE\n"
-        "Based on the brief and Overview, choose sections that fit THIS specific site.\n"
-        "Do NOT use a generic template. Ask: what does this business actually need?\n"
-        "Examples of site-appropriate structures:\n"
-        "  Restaurant: Hero > Menu Highlights > Chef Story > Gallery > Reservations > Footer\n"
-        "  SaaS:       Hero > Features > How It Works > Pricing > Testimonials > CTA > Footer\n"
-        "  Law Firm:   Hero > Practice Areas > Team > Case Results > Contact > Footer\n"
-        "  Portfolio:  Hero > Work Grid > About > Services > Contact > Footer\n"
-        "  E-commerce: Hero > Featured Products > Categories > Why Us > Newsletter > Footer\n"
-        "  Wellness:   Hero > Services > Philosophy > Team > Testimonials > Booking > Footer\n"
-        "Choose the right structure for THIS brief.\n\n"
-        "PHASE 3 -- CSS FOUNDATION (always required)\n"
-        "a) :root variables: every YAML token becomes a CSS custom property.\n"
-        "   --color-primary, --color-surface, --font-display, --radius-card, --spacing-lg, etc.\n"
-        "b) Load Google Fonts matching fontFamily tokens (via <link> in <head>).\n"
-        "c) Implement elevation from prose: if glassmorphism use backdrop-filter+alpha;\n"
-        "   if tonal use surface-container-* levels; if shadows define box-shadow scale.\n\n"
-        "PHASE 4 -- IMPLEMENT EACH SECTION\n"
-        "Typography: clamp() for responsive text.\n"
-        "  Hero display: clamp(2.8rem,6vw,5.5rem), weight 700-800, letter-spacing -0.04em\n"
-        "  Section headline: clamp(1.75rem,3.5vw,2.75rem), weight 600-700\n"
-        "  Body: 16-18px, weight 400, line-height 1.6-1.75\n"
-        "  Caption/label: 12-14px, weight 500-600, letter-spacing 0.04em\n"
-        "Composition: apply rule of thirds -- alternate left/right/center alignment per section.\n"
-        "Cards: aspect-ratio:4/3, overflow:hidden, hover translateY(-6px) + shadow + img scale(1.05)\n"
-        "Hero background: CSS background-image on .hero-bg + gradient overlay for contrast.\n"
-        "Sections: min 80px padding top/bottom (48px mobile). Max-width 1200px content container.\n"
-        "Avatars if testimonials: 56px circle, 2px primary-color border.\n"
-        "Inputs if forms: 48px height, var(--color-primary) focus ring.\n\n"
-        "PHASE 5 -- JAVASCRIPT\n"
-        "a) IntersectionObserver: .fade-in elements get .visible class on viewport entry.\n"
-        "b) Navbar: .scrolled class at scrollY > 50 (opaque bg + blur).\n"
-        "c) Mobile menu toggle if navbar present.\n"
-        "d) html { scroll-behavior: smooth; }\n\n"
-        "=== QUALITY CHECKLIST ===\n"
-        "[ ] Sections chosen match the brief (not a generic layout)\n"
-        "[ ] All DESIGN.md color tokens used correctly\n"
-        "[ ] Every image URL from the list appears verbatim in the HTML (no broken images)\n"
-        "[ ] Elevation style from prose implemented (not default shadows)\n"
-        "[ ] Every section: min 80px padding, proper heading hierarchy\n"
-        "[ ] Font loaded via Google Fonts and applied via CSS variables\n"
-        "[ ] WCAG AA contrast: text on backgrounds passes 4.5:1\n\n"
+        "Generate a COMPLETE, PRODUCTION-READY HTML website.\n\n"
+        + lang_instruction
+        + "=== BRIEF ===\n"
+        + context.design_brief
+        + "\n\n"
+        "=== DESIGN.MD -- YOUR CONSTITUTION. READ FULLY BEFORE WRITING CSS ===\n"
+        + context.design_markdown
+        + "\n\n"
+        "=== IMAGES -- EVERY URL BELOW MUST APPEAR IN THE HTML, COPIED VERBATIM ===\n"
+        "Rules:\n"
+        "  (1) Copy each URL exactly -- no modifications, no shortening.\n"
+        "  (2) Every slot must be used. No missing images.\n"
+        "  (3) hero and section_bg: CSS background-image property.\n"
+        "  (4) card_* and avatar_*: <img> tags with crossorigin='anonymous'.\n"
+        "  (5) All image containers: object-fit: cover + defined width/height.\n"
+        "  (6) Never placeholder.com or empty src.\n\n"
+        + img_lines
+        + "\n"
+        + image_plan_context
+        + "\n"
+        "=== BUILD PROCESS ===\n\n"
+        "STEP 1 -- READ DESIGN.MD PROSE\n"
+        "Extract: visual reference/mood, elevation style, shape language, color roles.\n"
+        "These OVERRIDE every default. If DESIGN.md says asymmetric, do asymmetric.\n\n"
+        "STEP 2 -- DESIGN PAGE STRUCTURE FROM SCRATCH\n"
+        "Do NOT pick from a preset list. Choose sections and layouts that make this\n"
+        "brand feel SPECIFIC and MEMORABLE. Use the layout patterns in the system prompt.\n"
+        "Different sections must use different layout patterns.\n\n"
+        "STEP 3 -- CSS FOUNDATION\n"
+        "Convert every YAML token from DESIGN.md into a CSS custom property:\n"
+        "  --color-primary, --color-surface, --font-display, --radius-card, etc.\n"
+        "Load Google Fonts for the fontFamily tokens. Apply via CSS variables throughout.\n"
+        "Implement elevation EXACTLY as DESIGN.md describes:\n"
+        "  glassmorphism: backdrop-filter + rgba backgrounds\n"
+        "  tonal: surface-container color levels, no box-shadow\n"
+        "  editorial flat: borders + scale, no blur\n\n"
+        "STEP 4 -- IMPLEMENT EVERY SECTION\n"
+        "Use clamp() for fluid typography. Use ALL color tokens -- if palette has 10, all 10 appear.\n"
+        "Apply color to section backgrounds, borders, gradients -- not just buttons.\n"
+        "Alternate layout patterns between sections.\n\n"
+        "STEP 5 -- JAVASCRIPT (all required)\n"
+        "  - html { scroll-behavior: smooth }\n"
+        "  - IntersectionObserver: .reveal elements get .visible class on viewport entry.\n"
+        "    CSS: .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.6s, transform 0.6s; }\n"
+        "         .reveal.visible { opacity: 1; transform: none; }\n"
+        "    Apply .reveal to: section headlines, cards, feature blocks, stat numbers.\n"
+        "    Stagger: .reveal:nth-child(n) { transition-delay: calc(n * 0.1s) }\n"
+        "  - Navbar: .scrolled class at scrollY > 50px\n"
+        "  - Mobile nav toggle if nav has links\n\n"
+        "=== FINAL CHECKLIST ===\n"
+        "[ ] Layout reflects DESIGN.md visual reference, not a generic template\n"
+        "[ ] All YAML color tokens are CSS custom properties AND all are used\n"
+        "[ ] EVERY image URL appears verbatim (all 12 slots used, no broken images)\n"
+        "[ ] hero/section_bg: background-image CSS. card_*/avatar_*: img with object-fit cover\n"
+        "[ ] Elevation matches DESIGN.md prose exactly\n"
+        "[ ] clamp() on all display/headline sizes. Google Fonts loaded. CSS variables applied.\n"
+        "[ ] Sections alternate layout patterns\n"
+        "[ ] .reveal/.visible IntersectionObserver on headlines, cards, features\n"
+        "[ ] WCAG AA: text on backgrounds >= 4.5:1\n"
+        "[ ] Mobile responsive at <= 768px with @media queries\n"
+        "[ ] ALL text content is in the same language as the brief\n\n"
         "OUTPUT: Only raw HTML. First line <!DOCTYPE html>. Last line </html>. No markdown.\n"
     )
 
-    full_prompt = SYSTEM_PROMPT + "\n\n" + user_prompt
+    full_prompt = build_system_prompt(context.design_brief) + "\n\n" + user_prompt
 
     html_output = await client.generate_text(
         prompt=full_prompt,
         model="pro",
-        temperature=0.35,
+        temperature=0.55,
     )
 
     # Strip markdown code fences -- Gemini sometimes wraps HTML in ```html...```

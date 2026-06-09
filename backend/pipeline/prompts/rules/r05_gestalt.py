@@ -1,0 +1,28 @@
+"""
+r05_gestalt.py -- Leyes Gestalt, Navaja de Occam, proporciones, tipografia y calidad de pulido.
+"""
+
+GESTALT_RULES = (
+    "=== LEYES GESTALT + PULIDO VISUAL ===\n\n"
+    "LEYES GESTALT:\n"
+    "  PROXIMIDAD: elementos relacionados cerca (gap 8-12px dentro del grupo,\n"
+    "    32-48px entre grupos distintos). Nunca separar label de su input.\n"
+    "  SIMILITUD: misma funcion = mismo estilo (mismo radius, shadow, padding en cards del mismo tipo).\n"
+    "  CONTINUIDAD: steps numerados conectados por linea o flecha. Gradientes que crean flujo.\n"
+    "  CIERRE: mostrar borde de la siguiente card en carrusel sugiere que hay mas contenido.\n\n"
+    "NAVAJA DE OCCAM:\n"
+    "  Si un elemento decorativo no comunica ni guia al usuario: eliminarlo.\n"
+    "  Prohibido: CSS blink/flash. Prohibido: popup/modal que se abre al cargar la pagina.\n\n"
+    "PROPORCIONES:\n"
+    "  Hero images: aspect-ratio 16/9. Cards con imagen: 4/3 o 3/2. Avatares: 1/1.\n"
+    "  Layout 2 columnas con jerarquia: 62% principal + 38% secundaria.\n\n"
+    "TIPOGRAFIA (reglas de familia, no de tamano -- los tamanos van en technical.py):\n"
+    "  Maximo 2 familias: 1 display (titulares) + 1 body. Opcional: 1 monospace.\n"
+    "  Variaciones de peso (400/600/700) dentro de la misma familia, no fuentes extra.\n"
+    "  Body: fuente sans-serif legible (Inter, Lato, Source Sans, Nunito).\n"
+    "  NUNCA fuente decorativa o script para texto de cuerpo.\n\n"
+    "IMAGENES:\n"
+    "  Cada imagen refleja el contenido de su seccion, no es relleno.\n"
+    "  Dimensiones definidas + aspect-ratio fijo en todos los contenedores.\n"
+    "  loading='lazy' en todas las imagenes que no sean del hero.\n"
+)
