@@ -2,12 +2,31 @@
 color_science.py -- Análisis científico de colores para diseño
 ==============================================================
 Valida WCAG contrast, genera paletas armónicas, implementa Material Design 3.
+
+Las operaciones de generación cromática (complementario, paleta tonal) delegan
+a services/colour_engine.py que usa OKLCH perceptualmente uniforme.
+Las validaciones WCAG 2.1 se calculan localmente (sin dependencias externas).
 """
 
 import logging
 import re
-from typing import Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional
 from dataclasses import dataclass
+
+from services.colour_engine import (
+    generate_complementary as _oklch_complementary,
+    generate_tonal_palette as _oklch_tonal_palette,
+    generate_harmonic_palette as _oklch_harmonic_palette,
+    detect_harmony_type,
+    palette_colorblind_report,
+    score_color_harmony,
+    delta_e,
+    simulate_cvd,
+    simulate_tritanopia,
+    keyword_to_hex,
+    hex_to_keyword,
+    classify_palette_temperature,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -146,18 +165,19 @@ class ColorScience:
         return (ratio >= 7.0, ratio)
     
     def generate_complementary(self, hex_color: str) -> str:
-        """Genera color complementario (opuesto en rueda de color)."""
-        rgb = self.hex_to_rgb(hex_color)
-        if not rgb:
-            return "#cccccc"
-        
-        r, g, b = rgb
-        # Complementario simple (inverso RGB)
-        comp_r = 255 - r
-        comp_g = 255 - g
-        comp_b = 255 - b
-        
-        return self.rgb_to_hex((comp_r, comp_g, comp_b))
+        """
+        Genera color complementario exacto usando OKLCH (H + 180°).
+        Perceptualmente más preciso que invertir RGB.
+        """
+        try:
+            return _oklch_complementary(hex_color)
+        except Exception:
+            # fallback RGB por si el color es inválido
+            rgb = self.hex_to_rgb(hex_color)
+            if not rgb:
+                return "#cccccc"
+            r, g, b = rgb
+            return self.rgb_to_hex((255 - r, 255 - g, 255 - b))
     
     def lighten(self, hex_color: str, amount: float = 0.1) -> str:
         """
@@ -199,33 +219,56 @@ class ColorScience:
     
     def generate_tonal_palette(self, primary: str) -> Dict[str, str]:
         """
-        Genera paleta tonal basada en un color primario (Material Design 3 style).
-        
-        Retorna diccionario con 10 tonos: 0, 10, 20, ..., 90, 100
+        Genera paleta tonal con distribución perceptualmente uniforme (OKLCH).
+        Material Design 3 style: 11 tonos del 0 (negro) al 100 (blanco).
         """
-        # Implementación simplificada: osculece/aclara progresivamente
-        palette = {}
-        
-        # Calcular base
-        base_rgb = self.hex_to_rgb(primary)
-        if not base_rgb:
-            return {str(i * 10): "#cccccc" for i in range(11)}
-        
-        # Generar tonos (0 = muy oscuro, 100 = muy claro)
-        for i in range(11):
-            tone = i * 10
-            if tone < 50:
-                # Oscurecer
-                amount = (50 - tone) / 50  # 0.0 a 1.0
-                palette[str(tone)] = self.darken(primary, amount * 0.8)
-            elif tone == 50:
-                palette[str(tone)] = primary
-            else:
-                # Aclarar
-                amount = (tone - 50) / 50  # 0.0 a 1.0
-                palette[str(tone)] = self.lighten(primary, amount * 0.8)
-        
-        return palette
+        try:
+            return _oklch_tonal_palette(primary)
+        except Exception:
+            # fallback simple en RGB
+            palette = {}
+            base_rgb = self.hex_to_rgb(primary)
+            if not base_rgb:
+                return {str(i * 10): "#cccccc" for i in range(11)}
+            for i in range(11):
+                tone = i * 10
+                if tone < 50:
+                    palette[str(tone)] = self.darken(primary, (50 - tone) / 50 * 0.8)
+                elif tone == 50:
+                    palette[str(tone)] = primary
+                else:
+                    palette[str(tone)] = self.lighten(primary, (tone - 50) / 50 * 0.8)
+            return palette
+
+    def generate_harmonic_palette(self, primary: str, harmony: str = "complementario") -> Dict:
+        """
+        Genera paleta armónica completa usando OKLCH.
+
+        Args:
+            primary: Color primario en hex.
+            harmony: 'complementario' | 'analogo' | 'triadico' | 'monocromatico'
+
+        Returns:
+            {"primary", "secondary", "accent", "neutral_palette", "harmony_type"}
+        """
+        return _oklch_harmonic_palette(primary, harmony)
+
+    def analyze_palette(self, palette: List[str]) -> Dict:
+        """
+        Análisis de armonía y accesibilidad para daltonismo de una paleta completa.
+
+        Returns:
+            {
+                "harmony_type": str,
+                "harmony_score": float,
+                "colorblind_report": dict,
+            }
+        """
+        return {
+            "harmony_type": detect_harmony_type(palette),
+            "harmony_score": round(score_color_harmony(palette), 1),
+            "colorblind_report": palette_colorblind_report(palette),
+        }
     
     def extract_colors_from_markdown(self, markdown: str) -> Dict[str, str]:
         """
@@ -259,7 +302,7 @@ class ColorScience:
         text_on_primary: str,
         surface: str,
         text_on_surface: str
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Valida que una paleta completa cumpla WCAG AA.
         
@@ -309,6 +352,28 @@ class ColorScience:
             )
         
         return result
+
+    def simulate_cvd(self, hex_color: str, deficiency: str, severity: float = 1.0) -> str:
+        """Simula CVD con matrices Machado 2010. deficiency: protanopia|deuteranopia|tritanopia. severity: 0.5|1.0"""
+        return simulate_cvd(hex_color, deficiency, severity)
+
+    def colorblind_report(self, palette: List[str]) -> Dict:
+        """Reporte completo CVD (protanopia, deuteranopia, tritanopia) con matrices Machado 2010."""
+        return palette_colorblind_report(palette)
+
+    def palette_temperature(self, palette: List[str]) -> Dict:
+        """Clasifica temperatura perceptual de la paleta: calido / neutro / frio."""
+        return classify_palette_temperature(palette)
+
+    @staticmethod
+    def color_name(hex_color: str, threshold: float = 5.0) -> Optional[str]:
+        """Nombre CSS mas cercano a un color hex (delta E <= threshold). None si no hay coincidencia."""
+        return hex_to_keyword(hex_color, threshold)
+
+    @staticmethod
+    def name_to_hex(name: str) -> Optional[str]:
+        """Convierte nombre CSS a hex. 'navy' -> '#000080'. Case-insensitive."""
+        return keyword_to_hex(name)
 
 
 # Singleton
