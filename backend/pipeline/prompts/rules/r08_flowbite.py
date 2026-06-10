@@ -1,10 +1,11 @@
 """
 r08_flowbite.py - Integracion con Flowbite UI Library
 Ensena a Gemini a usar Flowbite JS para interactividad y sus patrones
-de componentes para diseños mas creativos y pulidos.
+de componentes para disenos mas creativos y pulidos.
 """
 
 FLOWBITE_COMPONENTS = """
+
 ## FLOWBITE UI LIBRARY - USE SELECTIVELY, NOT ALL AT ONCE
 
 ### THE RULE: Choose 2-4 components maximum per site
