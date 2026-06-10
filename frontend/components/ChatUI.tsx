@@ -2,23 +2,27 @@
 
 import { useState } from 'react';
 import type { PipelineState } from '@/types/pipeline';
+import { IconSend, IconCheck, IconAlertCircle } from './Icons';
 
 interface Props {
   state: PipelineState;
   onGenerate: (brief: string, projectType?: string) => void;
 }
 
-/**
- * ChatUI - Componente para ingresar brief y disparar el pipeline
- * Pipeline: 2 pasos (analyzing → generating)
- */
+const STEP_LABELS: Record<string, string> = {
+  analyzing:  'Analizando brief…',
+  generating: 'Generando código…',
+  completed:  'Completado',
+};
+
 export default function ChatUI({ state, onGenerate }: Props) {
   const [brief, setBrief] = useState('');
 
-  const isRunning = state.status === 'running';
+  const isRunning   = state.status === 'running';
   const isCompleted = state.status === 'completed';
-  const hasError = state.status === 'error';
-  const canSubmit = brief.trim().length > 10 && !isRunning;
+  const hasError    = state.status === 'error';
+  const charCount   = brief.trim().length;
+  const canSubmit   = charCount > 10 && !isRunning;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,20 +30,11 @@ export default function ChatUI({ state, onGenerate }: Props) {
     onGenerate(brief.trim());
   }
 
-  const stepLabels: Record<string, { label: string; icon: string }> = {
-    analyzing: { label: 'Analizando...', icon: '✨' },
-    generating: { label: 'Generando...', icon: '⚡' },
-    completed: { label: 'Completado', icon: '✓' },
-  };
-
-  const currentStepInfo = state.currentStep ? stepLabels[state.currentStep] : null;
-
   return (
     <div className="flex flex-col gap-4 p-6 h-full bg-white">
-      {/* Formulario */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <div>
-          <label className="text-xs font-semibold text-gray-900 uppercase tracking-wide block mb-2">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest block mb-2">
             Descripción del diseño
           </label>
           <textarea
@@ -49,68 +44,75 @@ export default function ChatUI({ state, onGenerate }: Props) {
             disabled={isRunning}
             rows={6}
             className="
-              w-full rounded-lg border border-gray-200 bg-white px-4 py-3
+              w-full rounded-xl border border-gray-200 bg-white px-4 py-3
               text-sm text-gray-800 placeholder-gray-400 resize-none
-              focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400
-              disabled:bg-gray-50 disabled:text-gray-400 
+              focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100
+              disabled:bg-gray-50 disabled:text-gray-400
               transition-all duration-150
             "
           />
+          <p className="text-[11px] text-gray-400 mt-1 text-right">
+            {charCount} / mín. 10 caracteres
+          </p>
         </div>
 
         <button
           type="submit"
           disabled={!canSubmit}
           className="
-            w-full rounded-lg py-3 px-4 text-sm font-semibold
-            bg-blue-600 text-white hover:bg-blue-700 
-            active:bg-blue-800
-            disabled:opacity-50 disabled:cursor-not-allowed
+            w-full rounded-xl py-3 px-4 text-sm font-semibold
+            bg-indigo-600 text-white hover:bg-indigo-700
+            active:bg-indigo-800
+            disabled:opacity-40 disabled:cursor-not-allowed
             shadow-sm hover:shadow-md
             transition-all duration-150
+            flex items-center justify-center gap-2
           "
         >
           {isRunning ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <>
+              <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
               Generando…
-            </span>
+            </>
           ) : (
-            '✦ Generar interfaz'
+            <>
+              <IconSend size={14}/>
+              Generar interfaz
+            </>
           )}
         </button>
       </form>
 
-      {/* Status indicator */}
-      {isRunning && currentStepInfo && (
-        <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-100 rounded-lg mt-2">
-          <span className="text-lg animate-pulse">{currentStepInfo.icon}</span>
-          <span className="text-sm font-medium text-blue-900">{currentStepInfo.label}</span>
+      {/* Estado de progreso */}
+      {isRunning && state.currentStep && (
+        <div className="flex items-center gap-3 p-3.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+          <span className="inline-block w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin flex-shrink-0"/>
+          <span className="text-sm font-medium text-indigo-800">
+            {STEP_LABELS[state.currentStep] ?? state.currentStep}
+          </span>
         </div>
       )}
 
-      {/* Error display */}
+      {/* Error */}
       {hasError && (
-        <div className="flex flex-col gap-2 p-4 bg-red-50 border border-red-100 rounded-lg mt-2">
-          <p className="text-xs font-semibold text-red-900">⚠ Error</p>
-          <p className="text-xs text-red-700">{state.error}</p>
+        <div className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-100 rounded-xl">
+          <IconAlertCircle size={15} className="text-red-500 flex-shrink-0 mt-0.5"/>
+          <div>
+            <p className="text-xs font-semibold text-red-800 mb-0.5">Error al generar</p>
+            <p className="text-xs text-red-700">{state.error}</p>
+          </div>
         </div>
       )}
 
-      {/* Completed summary */}
+      {/* Completado */}
       {isCompleted && (
-        <div className="flex flex-col gap-3 p-4 bg-green-50 border border-green-100 rounded-lg mt-2">
-          <p className="text-xs font-semibold text-green-900">✓ Diseño generado</p>
-          <div className="text-xs text-green-700 space-y-1">
-            {state.designMarkdown && (
-              <p>• Sistema de diseño creado</p>
-            )}
-            {state.htmlOutput && (
-              <p>• Sitio web generado</p>
-            )}
-            {state.elapsedMs && (
-              <p>• Tiempo: {(state.elapsedMs / 1000).toFixed(2)}s</p>
-            )}
+        <div className="flex items-start gap-3 p-3.5 bg-green-50 border border-green-100 rounded-xl">
+          <IconCheck size={15} className="text-green-600 flex-shrink-0 mt-0.5"/>
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-green-800">Diseño generado</p>
+            {state.designMarkdown && <p className="text-xs text-green-700">Sistema de diseño creado</p>}
+            {state.htmlOutput     && <p className="text-xs text-green-700">Sitio web generado</p>}
+            {state.elapsedMs      && <p className="text-xs text-green-600">Tiempo: {(state.elapsedMs / 1000).toFixed(2)}s</p>}
           </div>
         </div>
       )}
