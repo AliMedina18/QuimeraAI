@@ -27,3 +27,49 @@ export interface GenerateRequest {
   design_brief: string;
   project_type?: string;
 }
+
+// ── Sugerencias de brief ──────────────────────────────────────────────────
+
+export interface MissingElement {
+  key: string;
+  label: string;
+  hint: string;
+  chip_text: string;
+}
+
+export interface StyleSuggestion {
+  id: string;
+  label: string;
+  emoji: string;
+  description: string;
+  chip_text: string;
+}
+
+export interface TemplateSuggestion {
+  slug: string;
+  label: string;
+  mood: string;
+  chip_text: string;
+}
+
+export interface ColorPalette {
+  name: string;
+  primary: string;
+  secondary: string;
+  accent: string;
+  surface: string;
+  text: string;
+  chip_text: string;
+}
+
+export interface SuggestResponse {
+  industry: string;
+  confidence: number;
+  missing: MissingElement[];
+  styles: StyleSuggestion[];
+  templates: TemplateSuggestion[];
+  palettes: ColorPalette[];
+}
+estion[];
+  palettes: ColorPalette[];
+}

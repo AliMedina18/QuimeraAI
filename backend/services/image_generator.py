@@ -61,7 +61,7 @@ CURATED_PHOTOS = {
         "card4":   "1558618666-fcd25c85cd64",      # cake slice
         "card5":   "1501339847302-ac426a4a7cbb",  # cafe interior
         "card6":   "1512621776951-a57141f2eefd",  # avocado toast
-        "section": "1559056189-fe9c7fda55c1",      # cozy cafe
+        "section": "1509042239860-f550ce710b93",      # coffee shop warm (repl: deleted photo)
     },
     # --- Tech & SaaS ---
     "tech": {
@@ -124,7 +124,7 @@ CURATED_PHOTOS = {
         "hero":    "1469474968028-56623f02e42e",  # landscape horizon
         "hero2":   "1476514525535-07fb3b4ae5f1",  # city at night
         "card1":   "1507525428034-b723cf961d3e",  # beach
-        "card2":   "1502786129-2351a4ac7b4a",      # mountains
+        "card2":   "1464822759023-fed622ff2c3b",      # mountain lake (repl: deleted photo)
         "card3":   "1513635269975-59663e0ac1ad",  # European city
         "card4":   "1506905925346-21bda4d32df4",  # airplane window
         "card5":   "1508739773434-c26b3d09e071",  # tropical
@@ -137,7 +137,7 @@ CURATED_PHOTOS = {
         "hero2":   "1560448204-603b3fc33ddc",      # modern interior
         "card1":   "1556228578-8c89e6adf883",      # minimalist room
         "card2":   "1600566752355-35792bedcfea",  # modern kitchen
-        "card3":   "1560185893-a55a847d9a08",      # outdoor pool
+        "card3":   "1570129477492-45c003edd2be",      # luxury pool (repl: deleted photo)
         "card4":   "1568605114967-8130f3a36994",  # living room
         "card5":   "1489171078254-c3365d6e359f",  # architecture
         "card6":   "1568605114967-8130f3a36994",  # estate exterior
@@ -164,7 +164,7 @@ CURATED_PHOTOS = {
         "card4":   "1445205170230-053b83016050",  # handbag
         "card5":   "1515886657613-9f3515b0c78f",  # model closeup
         "card6":   "1467043237213-65f2da53396f",  # street style
-        "section": "1558618047-3c8c76ca7d13",      # editorial fashion
+        "section": "1509631179647-0177331693ae",      # runway editorial (repl: deleted photo)
     },
 }
 

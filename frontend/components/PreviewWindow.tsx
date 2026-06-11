@@ -70,8 +70,43 @@ const injectNavBlock = (html: string): string => {
   return NAV_BLOCK_SCRIPT + html;
 };
 
+/**
+ * Elimina etiquetas que rompen recursos externos en un iframe sandbox con
+ * origen nulo (sandbox sin allow-same-origin):
+ *
+ *  - <meta http-equiv="Content-Security-Policy"> con 'self' → 'self' resuelve
+ *    al origen nulo → bloquea Unsplash, picsum, Google Fonts, CDN scripts.
+ *  - <meta name="referrer" content="no-referrer"> → suprime el Referer →
+ *    puede bloquear imágenes en CDNs que lo requieren.
+ *
+ * Después inyecta una CSP permisiva explícita para el iframe.
+ */
+const PERMISSIVE_CSP =
+  '<meta http-equiv="Content-Security-Policy" ' +
+  'content="default-src * \'unsafe-inline\' \'unsafe-eval\' data: blob:;">';
+
+const sanitizeForIframe = (html: string): string => {
+  // Quitar cualquier CSP meta tag existente
+  let out = html.replace(
+    /<meta\s[^>]*http-equiv\s*=\s*["']?Content-Security-Policy["']?[^>]*\/?>/gi,
+    '',
+  );
+  // Quitar no-referrer meta (rompe imágenes en algunos CDNs)
+  out = out.replace(
+    /<meta\s[^>]*name\s*=\s*["']?referrer["']?[^>]*no-referrer[^>]*\/?>/gi,
+    '',
+  );
+  // Inyectar CSP permisiva justo después de <head>
+  const headMatch = out.match(/<head[^>]*>/i);
+  if (headMatch && headMatch.index !== undefined) {
+    const insertAt = headMatch.index + headMatch[0].length;
+    out = out.slice(0, insertAt) + '\n' + PERMISSIVE_CSP + out.slice(insertAt);
+  }
+  return out;
+};
+
 const PreviewWindow: FC<PreviewWindowProps> = ({ htmlOutput }) => {
-  const safeHtml = injectNavBlock(htmlOutput);
+  const safeHtml = injectNavBlock(sanitizeForIframe(htmlOutput));
 
   const handleOpenFullscreen = () => {
     const blob = new Blob([htmlOutput], { type: 'text/html' });

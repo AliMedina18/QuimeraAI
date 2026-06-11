@@ -66,7 +66,7 @@ class ImageGenerationPlan(BaseModel):
 
 class DesignContext(BaseModel):
     """La memoria de trabajo de Quimera v3. Fluye por los 4 pasos del pipeline."""
-    
+
     # INPUT: Solicitud del usuario
     design_brief: str = Field(..., description="Descripcion original del usuario")
     project_type: Optional[str] = Field(default=None, description="landing_page | dashboard | app")
@@ -118,6 +118,64 @@ class GeminiTestResponse(BaseModel):
     gemini_response: str
 
 
+# ============================================================================
+# SUGERENCIAS DE BRIEF
+# ============================================================================
+
+class SuggestRequest(BaseModel):
+    """Payload del endpoint POST /sugerir"""
+    brief: str = Field(..., min_length=3, description="Texto del brief a analizar")
+
+
+class MissingElement(BaseModel):
+    """Elemento que falta en el brief."""
+    key: str
+    label: str
+    hint: str
+    chip_text: str
+
+
+class StyleSuggestion(BaseModel):
+    """Estilo de diseño recomendado."""
+    id: str
+    label: str
+    emoji: str
+    description: str
+    chip_text: str
+
+
+class TemplateSuggestion(BaseModel):
+    """Template de referencia recomendado."""
+    slug: str
+    label: str
+    mood: str
+    chip_text: str
+
+
+class ColorPalette(BaseModel):
+    """Paleta de color recomendada."""
+    name: str
+    primary: str
+    secondary: str
+    accent: str
+    surface: str
+    text: str
+    chip_text: str
+
+
+class SuggestResponse(BaseModel):
+    """Respuesta del endpoint POST /sugerir"""
+    industry: str
+    confidence: float
+    missing: List[MissingElement]
+    styles: List[StyleSuggestion]
+    templates: List[TemplateSuggestion]
+    palettes: List[ColorPalette]
+
+
+# ============================================================================
+# OUTPUT PERSISTENCIA (Day 4)
+# ============================================================================
 
 class GeneratedOutput(BaseModel):
     """

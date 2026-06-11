@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from models import HealthResponse, GeminiTestResponse, DesignRequest, DesignContext
+from models import HealthResponse, GeminiTestResponse, DesignRequest, DesignContext, SuggestRequest, SuggestResponse
 from services.gemini_client import GeminiClient
 from services.design_templates import get_templates_manager
 from pipeline.step0_template_analysis import analyze_templates
@@ -121,6 +121,43 @@ async def list_templates():
 
 
 # ============================================================================
+# SUGERENCIAS DE BRIEF (ligero, sin Gemini, <50ms)
+# ============================================================================
+
+@app.post("/sugerir", response_model=SuggestResponse, tags=["Sugerencias"])
+async def sugerir(request: SuggestRequest) -> SuggestResponse:
+    """
+    Analiza el brief y devuelve sugerencias en tiempo real.
+
+    Sin llamadas a Gemini — responde en <50ms.
+    El frontend llama a este endpoint con debounce mientras el usuario escribe.
+
+    Retorna:
+      - industry:   industria detectada
+      - missing:    elementos que faltan en el brief (chips clicables)
+      - styles:     estilos de diseño recomendados (chips clicables)
+      - templates:  templates de la biblioteca que encajan (chips clicables)
+      - palettes:   paletas de color por industria (chips clicables)
+    """
+    from services.suggestion_engine import analyze_brief
+    from models import MissingElement, StyleSuggestion, TemplateSuggestion, ColorPalette
+
+    try:
+        result = analyze_brief(request.brief)
+        return SuggestResponse(
+            industry=result["industry"],
+            confidence=result["confidence"],
+            missing=[MissingElement(**m) for m in result["missing"]],
+            styles=[StyleSuggestion(**s) for s in result["styles"]],
+            templates=[TemplateSuggestion(**t) for t in result["templates"]],
+            palettes=[ColorPalette(**p) for p in result["palettes"]],
+        )
+    except Exception as e:
+        logger.error("Error en /sugerir: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
 # PIPELINE
 # ============================================================================
 
@@ -166,7 +203,6 @@ async def generar_diseno(request: DesignRequest):
         # PASO 2: Analizar para imágenes
         logger.info("Paso 2: Analizando qué imágenes generar...")
         context = await analyze_for_images(context)
-        
         image_count = len(context.image_generation_plan.images) if context.image_generation_plan else 0
         logger.info("✓ Paso 2 completado. Imágenes a generar: %d", image_count)
 

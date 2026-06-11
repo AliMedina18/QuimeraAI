@@ -5,6 +5,7 @@ y produce HTML production-ready usando Gemini + imagenes reales.
 """
 
 import logging
+import re
 
 from models import DesignContext
 from pipeline.prompts.step3_prompts import build_system_prompt
@@ -139,7 +140,21 @@ async def generate_code(context: DesignContext) -> DesignContext:
         "  - FLOWBITE JS: add before </body> ONLY if you use an interactive component\n"
         "    (accordion, modal, drawer, dropdown, tabs, toast, banner, popover):\n"
         '    <script src="https://cdn.jsdelivr.net/npm/flowbite@2.3.0/dist/flowbite.min.js"></script>\n'
-        "    DO NOT include it if you have no data-* interactive components.\n\n"
+        "    DO NOT include it if you have no data-* interactive components.\n"
+        "  - APP-SPECIFIC INTERACTIONS -- read the brief and implement ALL relevant interactions:\n"
+        "    Social/feed app  -> like buttons toggle heart icon + counter, comment sections expand/collapse,\n"
+        "                        follow buttons toggle state, share copies URL with toast confirmation.\n"
+        "    E-commerce       -> add-to-cart updates cart badge counter, quantity +/- buttons work,\n"
+        "                        product image gallery click cycles through images, wishlist toggle.\n"
+        "    Dashboard/admin  -> tabs switch active panel, stat cards animate on load, filter dropdowns\n"
+        "                        filter table rows, sort column headers toggle asc/desc.\n"
+        "    Portfolio/agency -> project filter buttons show/hide cards by category, lightbox on image click,\n"
+        "                        testimonial carousel auto-plays and responds to dots/arrows.\n"
+        "    SaaS/landing     -> pricing toggle monthly/annual switches prices, FAQ accordion,\n"
+        "                        feature tabs switch content panel.\n"
+        "    Blog/media       -> category filter, search input filters article cards live.\n"
+        "    ANY app          -> every button/icon that implies an action MUST do something on click.\n"
+        "                        NO decorative buttons. NO static counters that never change.\n\n"
         "=== FINAL CHECKLIST ===\n"
         "[ ] Design is UNIQUE and SPECIFIC to this brief -- not a generic template\n"
         "[ ] Buttons have premium style: gradient, glow, or animated border (NOT flat rectangles)\n"
@@ -167,8 +182,15 @@ async def generate_code(context: DesignContext) -> DesignContext:
         "[ ] 320px: sin scroll horizontal, headlines legibles, cards 1 columna, nav hamburger\n"
         "[ ] 768px: grids 2 columnas, hero lado a lado si aplica\n"
         "[ ] 1440px: max-width container, no texto ultra-ancho (max 72ch en párrafos)\n"
-        "[ ] ALL text in the same language as the brief\n\n"
+        "[ ] ALL text in the same language as the brief\n"
+        "[ ] INTERACTIVIDAD: cada boton/icono que implica accion tiene JS funcionando (likes, carrito, tabs, filtros)\n"
+        "[ ] ANIMACIONES: .reveal en headlines y cards, parallax en hero, CountUp en stats -- SIEMPRE presentes\n\n"
         "=== CRITICAL BUG PREVENTION (these break every site -- check before outputting) ===\n\n"
+        "[ ] NO CSP META TAG -- NEVER add <meta http-equiv='Content-Security-Policy'>.\n"
+        "    The page is served inside a sandboxed iframe with a null origin.\n"
+        "    Any CSP with 'self' will block ALL external resources: images, fonts, CDN scripts.\n"
+        "    FORBIDDEN: <meta http-equiv='Content-Security-Policy' content='...'>\n"
+        "    FORBIDDEN: <meta name='referrer' content='no-referrer'> (breaks Unsplash images)\n\n"
         "[ ] VIEWPORT META: <head> must contain:\n"
         "    <meta name='viewport' content='width=device-width, initial-scale=1.0'>\n"
         "    Without this, the site is NOT responsive on mobile -- everything appears tiny.\n\n"
@@ -190,6 +212,16 @@ async def generate_code(context: DesignContext) -> DesignContext:
         "    button svg, a svg { display:inline-block; vertical-align:middle; flex-shrink:0; }\n"
         "    Buttons with icons MUST use display:inline-flex; align-items:center; gap:8px;\n"
         "    (NOT inline-block -- with inline-block + block SVG, icon stacks on top of text)\n\n"
+        "[ ] INTERACTIVE ELEMENTS -- ZERO DECORATIVE BUTTONS ALLOWED:\n"
+        "    Every element that LOOKS clickable MUST be wired in JS.\n"
+        "    Like/heart icon -> toggles filled state + increments counter.\n"
+        "    Comment icon -> expands/shows comment section.\n"
+        "    Follow/Subscribe button -> toggles 'Following'/'Unfollow' state.\n"
+        "    Add to cart -> increments cart badge. Quantity +/- -> updates number.\n"
+        "    Tabs -> switches visible panel. Accordion -> toggles open/closed.\n"
+        "    Filter buttons -> show/hide matching cards. Search input -> filters live.\n"
+        "    Share button -> navigator.share() or clipboard copy + toast.\n"
+        "    If a button has NO JS handler, it is a bug. Fix it before outputting.\n\n"
         "[ ] SVG PATH DATA — CRITICAL: each <path d='...'> must be SHORT (under 300 chars).\n"
         "    NEVER repeat path data. NEVER copy the same path segment twice.\n"
         "    For nav icons, use simple Heroicons paths ONLY -- 1-2 path elements max.\n"
@@ -240,6 +272,38 @@ async def generate_code(context: DesignContext) -> DesignContext:
         html_output = html_output[:-3]
     html_output = html_output.strip()
 
+    html_output = _inject_img_onerror(html_output)
+
     context.html_output = html_output
     logger.info("PASO 3: HTML generado (%d chars)", len(html_output))
     return context
+
+
+def _inject_img_onerror(html: str) -> str:
+    """
+    Inyecta un handler onerror en cada <img> que no tenga uno ya.
+    Si Unsplash sirve un 404 (foto borrada), el navegador carga
+    un placeholder de picsum en lugar de mostrar el ícono de imagen rota.
+    """
+    counter = [0]
+
+    def add_onerror(m: re.Match) -> str:
+        tag = m.group(0)
+        if "onerror" in tag.lower():
+            return tag  # ya tiene fallback, no tocar
+        counter[0] += 1
+        # Intentar extraer dimensiones para el placeholder
+        w_match = re.search(r'width=["\']?(\d+)', tag, re.IGNORECASE)
+        h_match = re.search(r'height=["\']?(\d+)', tag, re.IGNORECASE)
+        w = w_match.group(1) if w_match else "800"
+        h = h_match.group(1) if h_match else "600"
+        seed = f"img{counter[0]}"
+        onerror = (
+            f"onerror=\"this.onerror=null;"
+            f"this.src='https://picsum.photos/seed/{seed}/{w}/{h}'\""
+        )
+        if tag.endswith("/>"):
+            return tag[:-2].rstrip() + " " + onerror + "/>"
+        return tag[:-1].rstrip() + " " + onerror + ">"
+
+    return re.sub(r"<img\b[^>]*?/?>", add_onerror, html, flags=re.IGNORECASE | re.DOTALL)
