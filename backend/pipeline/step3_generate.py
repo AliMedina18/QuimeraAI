@@ -10,6 +10,7 @@ from models import DesignContext
 from pipeline.prompts.step3_prompts import build_system_prompt
 from services.gemini_client import GeminiClient
 from services.image_generator import get_image_urls
+from services.responsive_rules import RESPONSIVE_SYSTEM_RULES
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,8 @@ async def generate_code(context: DesignContext) -> DesignContext:
         + "\n"
         + image_plan_context
         + "\n"
+        + RESPONSIVE_SYSTEM_RULES
+        + "\n"
         "=== BUILD PROCESS ===\n\n"
         "STEP 1 -- READ DESIGN.MD PROSE\n"
         "Extract: visual reference/mood, elevation style, shape language, color roles.\n"
@@ -160,7 +163,10 @@ async def generate_code(context: DesignContext) -> DesignContext:
         "[ ] Imagen-texto equilibrio: ninguna columna supera 60% del ancho, aspect-ratio definido en imagenes\n"
         "[ ] FORMULARIOS: NUNCA input[type=number] con spinners -- usar type=text inputmode=numeric\n"
         "[ ] FORMULARIOS: input[type=date] pre-poblado con hoy via JS en DOMContentLoaded\n"
-        "[ ] Mobile responsive at <= 768px\n"
+        "[ ] RESPONSIVE: cumple TODAS las reglas R01-R21 del bloque RESPONSIVE DESIGN\n"
+        "[ ] 320px: sin scroll horizontal, headlines legibles, cards 1 columna, nav hamburger\n"
+        "[ ] 768px: grids 2 columnas, hero lado a lado si aplica\n"
+        "[ ] 1440px: max-width container, no texto ultra-ancho (max 72ch en párrafos)\n"
         "[ ] ALL text in the same language as the brief\n\n"
         "=== CRITICAL BUG PREVENTION (these break every site -- check before outputting) ===\n\n"
         "[ ] VIEWPORT META: <head> must contain:\n"
@@ -184,6 +190,12 @@ async def generate_code(context: DesignContext) -> DesignContext:
         "    button svg, a svg { display:inline-block; vertical-align:middle; flex-shrink:0; }\n"
         "    Buttons with icons MUST use display:inline-flex; align-items:center; gap:8px;\n"
         "    (NOT inline-block -- with inline-block + block SVG, icon stacks on top of text)\n\n"
+        "[ ] SVG PATH DATA — CRITICAL: each <path d='...'> must be SHORT (under 300 chars).\n"
+        "    NEVER repeat path data. NEVER copy the same path segment twice.\n"
+        "    For nav icons, use simple Heroicons paths ONLY -- 1-2 path elements max.\n"
+        "    If unsure: replace any complex icon with a simple geometric shape (circle, rect, line).\n"
+        "    Example safe hamburger: <path stroke-linecap='round' stroke-linejoin='round' d='M4 6h16M4 12h16M4 18h16'/>\n"
+        "    FORBIDDEN: generating the same coordinates twice in one path d='...' attribute.\n\n"
         "[ ] MODAL OVERLAY: NEVER use Tailwind utility classes on the modal wrapper div.\n"
         "    FORBIDDEN on modal div: fixed, inset-0, z-50, flex, items-center, justify-center, bg-black/60\n"
         "    These are Tailwind classes -- they do NOTHING without Tailwind CSS loaded.\n"
