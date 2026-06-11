@@ -141,11 +141,9 @@ const TypographyChip: FC<{ role: string; font?: string }> = ({ role, font }) => 
 // ── Main component ────────────────────────────────────────────────
 
 const DesignPreview: FC<DesignPreviewProps> = ({ designMarkdown }) => {
-  const { design, body } = useMemo(() => {
-    const match = designMarkdown.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
-    if (!match) return { design: { colors: {}, typography: {} }, body: designMarkdown };
-    return { design: parseDesign(match[1]), body: match[2] };
-  }, [designMarkdown]);
+  const match = designMarkdown.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+  const design = match ? parseDesign(match[1]) : { colors: {}, typography: {} };
+  const body = match ? match[2] : designMarkdown;
 
   const colorEntries = Object.entries(design.colors);
   const hasTypography = !!(design.typography.heading || design.typography.body || design.typography.accent);

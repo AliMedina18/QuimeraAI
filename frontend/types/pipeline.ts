@@ -1,21 +1,33 @@
-/**
- * types/pipeline.ts - Tipos para el pipeline (2 pasos)
- *
- * Pipeline: analyze_and_design() → generate_code()
- * Outputs: DESIGN.md + HTML autocontenido
- */
-
 export type PipelineStatus = 'idle' | 'running' | 'completed' | 'error';
-export type PipelineStep = 'analyzing' | 'generating' | 'completed' | null;
+export type PipelineStep = 'analyzing' | 'generating' | 'editing' | 'completed' | null;
+
+export interface SavedDesign {
+  id: string;
+  name: string;
+  htmlOutput: string;
+  designMarkdown: string;
+  savedAt: number;
+}
+
+export interface SelectedElement {
+  tag: string;
+  id: string;
+  classes: string;
+  text: string;
+  outerHTML: string;
+}
 
 export interface PipelineState {
   status: PipelineStatus;
   currentStep: PipelineStep;
-  designMarkdown: string;   // DESIGN.md output (paso 1)
-  htmlOutput: string;        // HTML autocontenido output (paso 2)
+  designMarkdown: string;
+  htmlOutput: string;
   error: string | null;
   elapsedMs: number | null;
   projectId: string | null;
+  studioMode: boolean;
+  savedDesigns: SavedDesign[];
+  selectedElement: SelectedElement | null;
 }
 
 export interface PipelineResponse {
@@ -28,7 +40,12 @@ export interface GenerateRequest {
   project_type?: string;
 }
 
-// ── Sugerencias de brief ──────────────────────────────────────────────────
+export interface EditRequest {
+  html_actual: string;
+  instruccion: string;
+  elemento_contexto?: string;
+  design_markdown?: string;
+}
 
 export interface MissingElement {
   key: string;
@@ -68,8 +85,5 @@ export interface SuggestResponse {
   missing: MissingElement[];
   styles: StyleSuggestion[];
   templates: TemplateSuggestion[];
-  palettes: ColorPalette[];
-}
-estion[];
   palettes: ColorPalette[];
 }

@@ -1,19 +1,19 @@
 """
 storage_client.py -- Cliente de Cloud Storage para Quimera
 ===========================================================
-Sube los archivos generados (React, CSS, Markdown) a un bucket de GCS.
+Sube y descarga los archivos de diseño (HTML, Markdown) al bucket de GCS.
 
 Autenticacion: Application Default Credentials (ADC).
   - Local: gcloud auth application-default login
   - Cloud Run: Service Account del contenedor
 
 Bucket: quimera-ai-prod-outputs
-Estructura:
-  projects/{projectId}/index.html       -- sitio HTML generado (Step 3)
-  projects/{projectId}/design.md        -- DESIGN.md generado (Step 1)
+Estructura de rutas:
+  designs/{designId}/index.html    -- HTML generado
+  designs/{designId}/design.md     -- DESIGN.md generado
 
-PREREQUISITO (una vez por proyecto GCP):
-  gsutil mb -p quimera-ai-prod -l us-central1 gs://quimera-ai-prod-outputs
+PREREQUISITO (ya creado):
+  gs://quimera-ai-prod-outputs  (us-central1, Standard)
 
 NOTA: el SDK de google-cloud-storage es sincrono.
 Todas las llamadas se envuelven en asyncio.to_thread() para no bloquear FastAPI.
@@ -32,8 +32,7 @@ BUCKET_NAME = os.getenv("GCS_BUCKET", "quimera-ai-prod-outputs")
 
 class StorageClient:
     """
-    Cliente para subir archivos generados a Cloud Storage.
-    El SDK de GCS es sincrono: usa asyncio.to_thread() para no bloquear el event loop.
+    Cliente para subir y descargar archivos de diseño a Cloud Storage.
     """
 
     def __init__(self, project_id: Optional[str] = None) -> None:
@@ -48,75 +47,101 @@ class StorageClient:
             self._client = None
             self._bucket = None
 
-    def _upload_blob_sync(self, blob_path: str, content: str, content_type: str) -> str:
-        """
-        Sube un blob a GCS (sincrono, se llama desde asyncio.to_thread).
+    # ------------------------------------------------------------------ #
+    #  Internos                                                            #
+    # ------------------------------------------------------------------ #
 
-        Returns:
-            URL publica gs:// del archivo subido.
-        """
+    def _upload_sync(self, blob_path: str, content: str, content_type: str) -> str:
+        """Sube texto a GCS (síncrono). Retorna gs:// path."""
         if self._bucket is None:
-            raise RuntimeError("StorageClient no inicializado correctamente.")
+            raise RuntimeError("StorageClient no inicializado.")
         blob = self._bucket.blob(blob_path)
         blob.upload_from_string(content.encode("utf-8"), content_type=content_type)
         return f"gs://{BUCKET_NAME}/{blob_path}"
 
-    async def upload_component(self, project_id: str, content: str) -> str:
-        """
-        Sube el componente React TypeScript.
+    def _download_sync(self, blob_path: str) -> str:
+        """Descarga texto de GCS (síncrono). Retorna el contenido como str."""
+        if self._bucket is None:
+            raise RuntimeError("StorageClient no inicializado.")
+        blob = self._bucket.blob(blob_path)
+        return blob.download_as_text(encoding="utf-8")
 
-        Returns:
-            URL gs:// del componente.
-        """
-        if not content:
-            return f"gs://{BUCKET_NAME}/projects/{project_id}/componente.tsx"
+    def _delete_sync(self, blob_path: str) -> None:
+        """Elimina un blob de GCS (síncrono). No falla si no existe."""
+        if self._bucket is None:
+            return
         try:
-            path = f"projects/{project_id}/componente.tsx"
-            url = await asyncio.to_thread(
-                self._upload_blob_sync, path, content, "text/plain; charset=utf-8"
-            )
-            logger.info("Storage: componente subido a %s", url)
-            return url
-        except Exception as e:
-            logger.error("Storage.upload_component: %s", e)
-            return f"gs://{BUCKET_NAME}/projects/{project_id}/componente.tsx"
+            blob = self._bucket.blob(blob_path)
+            blob.delete()
+        except Exception:
+            pass  # No importa si ya no existía
 
-    async def upload_tokens(self, project_id: str, content: str) -> str:
-        """
-        Sube los design tokens CSS.
+    # ------------------------------------------------------------------ #
+    #  API pública — diseños                                               #
+    # ------------------------------------------------------------------ #
 
-        Returns:
-            URL gs:// de los tokens.
+    async def upload_design_html(self, design_id: str, html: str) -> str:
         """
-        if not content:
-            return f"gs://{BUCKET_NAME}/projects/{project_id}/tokens.css"
+        Sube el HTML de un diseño a GCS.
+        Retorna el gs:// path.
+        """
+        if not html:
+            return ""
+        blob_path = f"designs/{design_id}/index.html"
         try:
-            path = f"projects/{project_id}/tokens.css"
-            url = await asyncio.to_thread(
-                self._upload_blob_sync, path, content, "text/css; charset=utf-8"
+            gcs_path = await asyncio.to_thread(
+                self._upload_sync, blob_path, html, "text/html; charset=utf-8"
             )
-            logger.info("Storage: tokens subidos a %s", url)
-            return url
+            logger.info("Storage: HTML subido → %s (%d chars)", gcs_path, len(html))
+            return gcs_path
         except Exception as e:
-            logger.error("Storage.upload_tokens: %s", e)
-            return f"gs://{BUCKET_NAME}/projects/{project_id}/tokens.css"
+            logger.error("Storage.upload_design_html: %s", e)
+            raise
 
-    async def upload_rationale(self, project_id: str, content: str) -> str:
+    async def upload_design_markdown(self, design_id: str, markdown: str) -> str:
         """
-        Sube el documento de rationale en Markdown.
-
-        Returns:
-            URL gs:// del rationale.
+        Sube el DESIGN.md de un diseño a GCS.
+        Retorna el gs:// path.
         """
-        if not content:
-            return f"gs://{BUCKET_NAME}/projects/{project_id}/rationale.md"
+        if not markdown:
+            return ""
+        blob_path = f"designs/{design_id}/design.md"
         try:
-            path = f"projects/{project_id}/rationale.md"
-            url = await asyncio.to_thread(
-                self._upload_blob_sync, path, content, "text/markdown; charset=utf-8"
+            gcs_path = await asyncio.to_thread(
+                self._upload_sync, blob_path, markdown, "text/markdown; charset=utf-8"
             )
-            logger.info("Storage: rationale subido a %s", url)
-            return url
+            logger.info("Storage: Markdown subido → %s", gcs_path)
+            return gcs_path
         except Exception as e:
-            logger.error("Storage.upload_rationale: %s", e)
-            return f"gs://{BUCKET_NAME}/projects/{project_id}/rationale.md"
+            logger.error("Storage.upload_design_markdown: %s", e)
+            raise
+
+    async def download_text(self, gcs_path: str) -> str:
+        """
+        Descarga contenido de texto desde un gs:// path.
+        Ejemplo: gs://quimera-ai-prod-outputs/designs/abc/index.html
+        """
+        if not gcs_path or not gcs_path.startswith("gs://"):
+            return ""
+        # Extraer el blob_path quitando el prefijo gs://<bucket>/
+        prefix = f"gs://{BUCKET_NAME}/"
+        blob_path = gcs_path[len(prefix):]
+        try:
+            content = await asyncio.to_thread(self._download_sync, blob_path)
+            logger.info("Storage: descargado %s (%d chars)", gcs_path, len(content))
+            return content
+        except Exception as e:
+            logger.error("Storage.download_text %s: %s", gcs_path, e)
+            raise
+
+    async def delete_design(self, design_id: str) -> None:
+        """
+        Elimina los archivos de un diseño de GCS (HTML + markdown).
+        Se llama cuando el usuario elimina un diseño de la biblioteca.
+        """
+        for blob_path in [
+            f"designs/{design_id}/index.html",
+            f"designs/{design_id}/design.md",
+        ]:
+            await asyncio.to_thread(self._delete_sync, blob_path)
+        logger.info("Storage: archivos del diseño %s eliminados.", design_id)

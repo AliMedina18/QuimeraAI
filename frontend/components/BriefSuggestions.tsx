@@ -9,21 +9,20 @@ import type {
   ColorPalette,
 } from '@/types/pipeline';
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
 
-function IconSparkle({ size = 11 }: { size?: number }) {
+function IconSparkle({ size = 10 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden>
       <path d="M8 0l1.8 5.2L15.2 7 10 8.8 8 14 6 8.8.8 7 6.2 5.2z" />
     </svg>
   );
 }
 
-function IconCheck({ size = 10 }: { size?: number }) {
+function IconCheck({ size = 9 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 12 12" fill="none"
-      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M2 6l3 3 5-5" />
     </svg>
   );
@@ -34,7 +33,7 @@ function ColorDot({ color, title }: { color: string; title?: string }) {
     <span
       title={title ?? color}
       style={{ backgroundColor: color }}
-      className="inline-block w-3 h-3 rounded-full border border-black/10 flex-shrink-0"
+      className="inline-block w-3.5 h-3.5 rounded-full border border-white/20 flex-shrink-0"
     />
   );
 }
@@ -51,23 +50,23 @@ interface ToggleChipProps {
 }
 
 function ToggleChip({ label, title, color = 'indigo', selected, disabled, onClick }: ToggleChipProps) {
-  const base = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all duration-100 cursor-pointer select-none disabled:opacity-40 disabled:cursor-not-allowed';
+  const base = 'inline-flex items-center gap-1 px-2.5 py-[5px] rounded-full text-[11px] font-medium border transition-all duration-100 select-none disabled:opacity-30 disabled:cursor-not-allowed';
   const unselected: Record<ChipColor, string> = {
-    orange:  'bg-white border-orange-200 text-orange-700 hover:bg-orange-50',
-    indigo:  'bg-white border-gray-200 text-gray-600 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700',
-    violet:  'bg-white border-gray-200 text-gray-600 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700',
-    emerald: 'bg-white border-gray-200 text-gray-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700',
+    orange:  'bg-white/5 border-orange-500/30 text-orange-400/80 hover:bg-orange-500/10 hover:border-orange-400/50 hover:text-orange-300',
+    indigo:  'bg-white/5 border-white/10 text-white/40 hover:bg-indigo-500/10 hover:border-indigo-500/30 hover:text-indigo-300',
+    violet:  'bg-white/5 border-white/10 text-white/40 hover:bg-violet-500/10 hover:border-violet-500/30 hover:text-violet-300',
+    emerald: 'bg-white/5 border-white/10 text-white/40 hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-300',
   };
   const sel: Record<ChipColor, string> = {
-    orange:  'bg-orange-100 border-orange-400 text-orange-800',
-    indigo:  'bg-indigo-100 border-indigo-400 text-indigo-800',
-    violet:  'bg-violet-100 border-violet-400 text-violet-800',
-    emerald: 'bg-emerald-100 border-emerald-400 text-emerald-800',
+    orange:  'bg-orange-500/15 border-orange-400/50 text-orange-300',
+    indigo:  'bg-indigo-500/15 border-indigo-400/50 text-indigo-300',
+    violet:  'bg-violet-500/15 border-violet-400/50 text-violet-300',
+    emerald: 'bg-emerald-500/15 border-emerald-400/50 text-emerald-300',
   };
   return (
     <button type="button" title={title} disabled={disabled} onClick={onClick}
       className={`${base} ${selected ? sel[color] : unselected[color]}`}>
-      {selected && <IconCheck size={10} />}
+      {selected && <IconCheck size={9} />}
       {label}
     </button>
   );
@@ -78,10 +77,10 @@ function PaletteChip({ palette, selected, disabled, onClick }: {
 }) {
   return (
     <button type="button" disabled={disabled} onClick={onClick}
-      className={`flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-left border transition-all duration-100 text-[11px] font-medium disabled:opacity-40 disabled:cursor-not-allowed ${
+      className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left border transition-all duration-100 text-[11px] font-medium disabled:opacity-30 disabled:cursor-not-allowed ${
         selected
-          ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
-          : 'bg-white border-gray-200 text-gray-600 hover:bg-emerald-50 hover:border-emerald-300'
+          ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300'
+          : 'bg-white/5 border-white/10 text-white/50 hover:border-white/20 hover:bg-white/8 hover:text-white/70'
       }`}>
       <div className="flex items-center gap-1 flex-shrink-0">
         <ColorDot color={palette.primary} title="Primario" />
@@ -89,15 +88,15 @@ function PaletteChip({ palette, selected, disabled, onClick }: {
         <ColorDot color={palette.accent} title="Acento" />
         <ColorDot color={palette.surface} title="Fondo" />
       </div>
-      <span className="flex-1">{palette.name}</span>
-      {selected && <span className="text-emerald-500 flex-shrink-0"><IconCheck size={10} /></span>}
+      <span className="flex-1 text-[11px]">{palette.name}</span>
+      {selected && <span className="text-emerald-400 flex-shrink-0"><IconCheck size={9} /></span>}
     </button>
   );
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">
+    <p className="text-[9px] font-semibold text-white/25 uppercase tracking-[0.1em] mb-2">
       {children}
     </p>
   );
@@ -156,39 +155,38 @@ export default function BriefSuggestions({ brief, selectedKeys, onToggle, disabl
   const selectedCount = selectedKeys.length;
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-white/10 bg-white/[0.04] overflow-hidden">
 
       {/* Header */}
-      <div className="flex items-center justify-between px-3.5 py-2 bg-gradient-to-r from-indigo-50 to-violet-50 border-b border-gray-100">
-        <div className="flex items-center gap-2 text-indigo-700">
-          <IconSparkle size={11} />
-          <span className="text-[11px] font-semibold uppercase tracking-widest">Sugerencias</span>
+      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/[0.06] bg-white/[0.03]">
+        <div className="flex items-center gap-1.5 text-indigo-400">
+          <IconSparkle size={10} />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">Sugerencias IA</span>
           {data?.industry && (
-            <span className="text-[10px] bg-indigo-100 text-indigo-600 rounded-full px-2 py-0.5 font-medium capitalize">
+            <span className="text-[9px] bg-indigo-500/15 text-indigo-300 rounded-full px-2 py-0.5 font-semibold capitalize">
               {data.industry}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
           {selectedCount > 0 && (
-            <span className="text-[10px] bg-indigo-600 text-white rounded-full px-2 py-0.5 font-semibold">
-              {selectedCount} seleccionado{selectedCount > 1 ? 's' : ''}
+            <span className="text-[9px] bg-indigo-600 text-white rounded-full px-2 py-0.5 font-semibold">
+              {selectedCount} activo{selectedCount > 1 ? 's' : ''}
             </span>
           )}
           {loading && (
-            <span className="inline-block w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+            <span className="w-3 h-3 border-2 border-indigo-400/60 border-t-indigo-400 rounded-full animate-spin inline-block" />
           )}
         </div>
       </div>
 
       {loading && !data ? (
-        <div className="px-4 py-4 text-center text-[11px] text-gray-400">Analizando brief…</div>
+        <div className="px-4 py-5 text-center text-[11px] text-white/30">Analizando brief…</div>
       ) : data ? (
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-white/[0.06]">
 
-          {/* Elementos faltantes */}
           {data.missing.length > 0 && (
-            <div className="px-3.5 pt-2.5 pb-3">
+            <div className="px-3.5 pt-3 pb-3">
               <SectionLabel>Completar brief</SectionLabel>
               <div className="flex flex-wrap gap-1.5">
                 {data.missing.map((m: MissingElement) => (
@@ -206,8 +204,7 @@ export default function BriefSuggestions({ brief, selectedKeys, onToggle, disabl
             </div>
           )}
 
-          {/* Estilos */}
-          <div className="px-3.5 pt-2.5 pb-3">
+          <div className="px-3.5 pt-3 pb-3">
             <SectionLabel>Estilo visual</SectionLabel>
             <div className="flex flex-wrap gap-1.5">
               {data.styles.map((s: StyleSuggestion) => (
@@ -224,8 +221,7 @@ export default function BriefSuggestions({ brief, selectedKeys, onToggle, disabl
             </div>
           </div>
 
-          {/* Templates */}
-          <div className="px-3.5 pt-2.5 pb-3">
+          <div className="px-3.5 pt-3 pb-3">
             <SectionLabel>Referencia de diseño</SectionLabel>
             <div className="flex flex-wrap gap-1.5">
               {data.templates.map((t: TemplateSuggestion) => (
@@ -242,8 +238,7 @@ export default function BriefSuggestions({ brief, selectedKeys, onToggle, disabl
             </div>
           </div>
 
-          {/* Paletas */}
-          <div className="px-3.5 pt-2.5 pb-3">
+          <div className="px-3.5 pt-3 pb-3">
             <SectionLabel>Paleta de colores</SectionLabel>
             <div className="flex flex-col gap-1.5">
               {data.palettes.map((p: ColorPalette) => (
@@ -258,10 +253,9 @@ export default function BriefSuggestions({ brief, selectedKeys, onToggle, disabl
             </div>
           </div>
 
-          {/* Tip */}
-          <div className="px-3.5 py-2 bg-gray-50">
-            <p className="text-[10px] text-gray-400">
-              Selecciona lo que quieras incluir — tu texto original no se modifica
+          <div className="px-3.5 py-2.5 bg-white/[0.02]">
+            <p className="text-[9px] text-white/20 leading-relaxed">
+              Selecciona contexto adicional — tu brief original no se modifica
             </p>
           </div>
 

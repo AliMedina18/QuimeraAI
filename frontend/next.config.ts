@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   outputFileTracingRoot: __dirname,
   allowedDevOrigins: ["*"],
+  experimental: { reactCompiler: false },
 };
 
 export default nextConfig;

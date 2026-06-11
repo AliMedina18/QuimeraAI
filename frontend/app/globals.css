@@ -14,14 +14,24 @@
 }
 
 @layer utilities {
-  /* Scrollbar fina para paneles */
+  /* Scrollbar fina — tema oscuro */
   .thin-scroll::-webkit-scrollbar {
     width: 4px;
+    height: 4px;
   }
   .thin-scroll::-webkit-scrollbar-track {
     background: transparent;
   }
   .thin-scroll::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 rounded-full;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+  }
+  .thin-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+  /* Firefox */
+  .thin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
   }
 }
